@@ -141,6 +141,8 @@ async function getState(override) {
 
 // Regla de firewall para el puerto de partida. Consultar no necesita administrador.
 const firewallRuleName = (port) => `Fardos MSC Coop TCP ${port}`;
+// Regla UDP del mismo puerto: la usa el canal de estado rápido (ajuste UdpState del mod).
+const firewallRuleNameUdp = (port) => `Fardos MSC Coop UDP ${port}`;
 
 function firewallOpen(port) {
   return new Promise((resolve) => {
@@ -551,11 +553,14 @@ ipcMain.handle('firewall:open', (_e, port) => {
   if (!Number.isInteger(p) || p < 1 || p > 65535) return { ok: false, error: 'Puerto no válido.' };
   const name = firewallRuleName(p);
   const saveName = firewallRuleName(p + 1);
-  // Dos reglas: la de partida y la de compartir la partida guardada (puerto + 1).
+  const udpName = firewallRuleNameUdp(p);
+  // Tres reglas: la de partida (TCP), la de compartir la partida guardada (TCP, puerto + 1) y la de estado rápido (UDP).
   const script = `netsh advfirewall firewall delete rule name='${name}' | Out-Null; ` +
     `netsh advfirewall firewall add rule name='${name}' dir=in action=allow protocol=TCP localport=${p}; ` +
     `netsh advfirewall firewall delete rule name='${saveName}' | Out-Null; ` +
-    `netsh advfirewall firewall add rule name='${saveName}' dir=in action=allow protocol=TCP localport=${p + 1}`;
+    `netsh advfirewall firewall add rule name='${saveName}' dir=in action=allow protocol=TCP localport=${p + 1}; ` +
+    `netsh advfirewall firewall delete rule name='${udpName}' | Out-Null; ` +
+    `netsh advfirewall firewall add rule name='${udpName}' dir=in action=allow protocol=UDP localport=${p}`;
   return new Promise((resolve) => {
     execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
       `Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile','-Command',"${script.replace(/"/g, '\\"')}"`],
@@ -633,6 +638,7 @@ function watchGameLog(dir, webContents) {
   const started = Date.now();
   let loaded = false;
   let lastCoop = '';
+  let lastPing = '';
   const send = (text, kind) => {
     if (!webContents.isDestroyed()) webContents.send('game:status', { text, kind });
   };
@@ -662,6 +668,15 @@ function watchGameLog(dir, webContents) {
       if (cut >= 0) msg = msg.slice(0, cut);
       msg = msg.trim();
       if (knownMsg.test(msg)) coop = msg;
+    }
+    // Línea de red del mod: «Red: ping X ms (…)». Se envía solo si cambia.
+    const net = /\[MSC Coop\] Red: ping ([^(]+?) \(/g;
+    let pingText = '';
+    let found;
+    while ((found = net.exec(text)) !== null) pingText = found[1].trim();
+    if (pingText && pingText !== lastPing && !webContents.isDestroyed()) {
+      lastPing = pingText;
+      webContents.send('game:net', { text: 'Ping con tu compañero: ' + pingText });
     }
     if (coop && coop !== lastCoop) {
       lastCoop = coop;
@@ -719,7 +734,12 @@ ipcMain.handle('game:launch', async (_e, payload) => {
   const configFile = path.join(configDir, 'msc-coop.json');
   let previous = {};
   try { previous = JSON.parse(fs.readFileSync(configFile, 'utf8')); } catch { /* primera vez */ }
+  // Conserva lo que escribe el mod y el launcher no gestiona (MaxCars, UdpState, módulos activados...).
+  for (const [key, value] of Object.entries(previous)) {
+    if (!(key in config)) config[key] = value;
+  }
   config.MaxCars = Number(previous.MaxCars) >= 2 ? 2 : 1;
+  config.UdpState = previous.UdpState === true;
   fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
 
   backupBeforeChange(gameDir);
@@ -837,6 +857,42 @@ ipcMain.handle('update:auto', (_e, value) => {
   return true;
 });
 ipcMain.handle('update:autoGet', () => autoInstallEnabled());
+
+// Módulos del cooperativo (claves de msc-coop.json; ver PROTOCOLO.md). Sonidos viene encendido por defecto.
+const MOD_FEATURES = [
+  ['Sounds', 'Sonidos del compañero (voz, pasos, claxon)', true],
+  ['Actions', 'Gestos al beber, comer y fumar', false],
+  ['Lights', 'Faros e intermitentes del compañero', false],
+  ['Engine', 'Motor del compañero', false],
+  ['CarParts', 'Puertas, capó y maletero del compañero', false],
+  ['Parts', 'Piezas instaladas (solo registro)', false],
+  ['Items', 'Objetos en la mano del compañero', false],
+  ['Money', 'Monedero compartido (solo el anfitrión)', false],
+  ['UdpState', 'Canal UDP para el estado (más rápido)', false],
+];
+function modConfigFile() {
+  const dir = loadSettings().gameDir;
+  return dir ? path.join(dir, 'Mods', 'Config', 'msc-coop.json') : null;
+}
+function readModConfig(file) {
+  try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return {}; }
+}
+ipcMain.handle('modules:get', () => {
+  const file = modConfigFile();
+  if (!file) return { error: 'sin carpeta del juego' };
+  const cfg = readModConfig(file);
+  return MOD_FEATURES.map(([key, label, def]) => ({ key, label, on: typeof cfg[key] === 'boolean' ? cfg[key] : def }));
+});
+ipcMain.handle('modules:set', (_e, key, value) => {
+  if (!MOD_FEATURES.some((f) => f[0] === key)) return false;
+  const file = modConfigFile();
+  if (!file) return false;
+  const cfg = readModConfig(file);
+  cfg[key] = value === true;
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(cfg, null, 2));
+  return true;
+});
 
 // ---------- Registros de partida (solo si el usuario lo acepta) ----------
 const LOGS_TO_KEEP = 10;

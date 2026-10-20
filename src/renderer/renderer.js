@@ -404,6 +404,30 @@ window.launcher.onShareState((st) => {
 });
 renderShare();
 
+// Módulos del cooperativo: una casilla por función, guardada en msc-coop.json.
+async function renderModules() {
+  const list = $('modulesList');
+  list.textContent = '';
+  const features = await window.launcher.getModules();
+  if (!features || features.error) {
+    list.textContent = 'Elige primero la carpeta del juego para ver los módulos.';
+    return;
+  }
+  for (const f of features) {
+    const row = document.createElement('label');
+    row.className = 'row-actions';
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.checked = f.on;
+    box.addEventListener('change', async () => {
+      await window.launcher.setModule(f.key, box.checked);
+    });
+    row.append(box, ' ' + f.label);
+    list.appendChild(row);
+  }
+}
+renderModules();
+
 // Instalación automática de actualizaciones: un botón que alterna Sí / No.
 async function renderAutoInstall() {
   const on = await window.launcher.getAutoInstall();
@@ -534,6 +558,14 @@ updateLater.addEventListener('click', () => {
   dismissedVersion = updateTitle.textContent.match(/\d+\.\d+\.\d+/)?.[0] || '';
   banner.hidden = true;
 });
+// Ping y tiempo de red que escribe el mod cada 5 s, en una línea aparte bajo el estado.
+if (window.launcher.onGameNet) {
+  window.launcher.onGameNet(({ text }) => {
+    const line = document.getElementById('netLine');
+    line.textContent = text;
+    line.hidden = !text;
+  });
+}
 if (window.launcher.onGameStatus) {
   window.launcher.onGameStatus(({ text, kind }) => {
     setStatus(text, kind);
