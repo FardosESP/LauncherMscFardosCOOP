@@ -541,18 +541,38 @@ ipcMain.handle('game:launch', (_e, payload) => {
 });
 
 // Auto-actualización: al arrancar busca una versión nueva en GitHub Releases, la descarga y la instala al cerrar.
+// Notas de la release: texto plano, sin HTML, recortado para que quepa en el aviso.
+const releaseNotesText = (notes) => {
+  if (!notes) return '';
+  const text = Array.isArray(notes) ? notes.map((n) => n.note || '').join('\n') : String(notes);
+  return text.replace(/<[^>]+>/g, '').trim().slice(0, 600);
+};
+
+let updateWindow = null;
+function sendUpdate(state) {
+  if (updateWindow && !updateWindow.isDestroyed()) updateWindow.webContents.send('update:state', state);
+}
+
 function setupAutoUpdate(win) {
   if (!app.isPackaged) return;
-  const send = (text, kind = '') => {
-    if (!win.isDestroyed()) win.webContents.send('update:status', { text, kind });
-  };
+  updateWindow = win;
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
-  autoUpdater.on('update-available', (info) => send(`Descargando la versión ${info.version}…`, 'ok'));
-  autoUpdater.on('update-downloaded', (info) => send(`Versión ${info.version} lista. Se instalará al cerrar el launcher.`, 'ok'));
-  autoUpdater.on('error', () => send('No se pudo comprobar actualizaciones. Se seguirá con la versión actual.'));
-  autoUpdater.checkForUpdates().catch(() => {});
+  autoUpdater.on('checking-for-update', () => sendUpdate({ phase: 'checking' }));
+  autoUpdater.on('update-available', (info) => sendUpdate({
+    phase: 'downloading', version: info.version, notes: releaseNotesText(info.releaseNotes),
+  }));
+  autoUpdater.on('update-not-available', () => sendUpdate({ phase: 'none' }));
+  autoUpdater.on('update-downloaded', (info) => sendUpdate({
+    phase: 'ready', version: info.version, notes: releaseNotesText(info.releaseNotes),
+  }));
+  autoUpdater.on('error', () => sendUpdate({ phase: 'error' }));
+  autoUpdater.checkForUpdates().catch(() => sendUpdate({ phase: 'error' }));
 }
+
+ipcMain.handle('update:check', () => autoUpdater.checkForUpdates().then(() => true).catch(() => false));
+// Cierra el launcher y arranca la nueva versión.
+ipcMain.handle('update:install', () => autoUpdater.quitAndInstall(false, true));
 
 app.whenReady().then(() => {
   createWindow();

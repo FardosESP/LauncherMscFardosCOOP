@@ -266,10 +266,23 @@ ui.modeJoin.addEventListener('change', render);
 ui.play.addEventListener('click', play);
 ui.gameDir.addEventListener('change', () => refresh(ui.gameDir.value.trim()));
 
-// Estado de actualización: se muestra en la barra de estado sin tapar otros mensajes importantes.
-if (window.launcher.onUpdateStatus) {
-  window.launcher.onUpdateStatus(({ text, kind }) => setStatus(text, kind));
-}
+// Aviso de actualización: versión nueva, cambios y botón para instalarla.
+const banner = $('updateBanner');
+const updateTitle = $('updateTitle');
+const updateNotes = $('updateNotes');
+const updateInstall = $('updateInstall');
+window.launcher.onUpdateState((s) => {
+  banner.hidden = s.phase !== 'downloading' && s.phase !== 'ready';
+  updateInstall.hidden = s.phase !== 'ready';
+  if (s.phase === 'downloading') {
+    updateTitle.textContent = `Nueva actualización ${s.version}: descargando…`;
+    updateNotes.textContent = s.notes || '';
+  } else if (s.phase === 'ready') {
+    updateTitle.textContent = `Nueva actualización ${s.version} lista para instalar`;
+    updateNotes.textContent = s.notes || 'Pulsa «Instalar ahora» para reiniciar el launcher con la nueva versión.';
+  }
+});
+updateInstall.addEventListener('click', () => window.launcher.installUpdate());
 if (window.launcher.onGameStatus) {
   window.launcher.onGameStatus(({ text, kind }) => setStatus(text, kind));
 }

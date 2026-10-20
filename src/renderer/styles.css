@@ -43,7 +43,8 @@ html, body {
   user-select: none;
 }
 
-.app { display: grid; grid-template-columns: 200px 1fr; height: 100vh; }
+body { display: flex; flex-direction: column; }
+.app { display: grid; grid-template-columns: 200px 1fr; flex: 1; min-height: 0; }
 
 /* Barra lateral */
 .sidebar {
@@ -227,6 +228,16 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
   padding: 8px 10px; color: var(--bad); font-size: 13px;
 }
 .notice[hidden] { display: none; }
+
+/* Aviso de actualización */
+.update-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 10px 16px; background: var(--surface-2); border-bottom: 1px solid var(--accent);
+  font-size: 13px;
+}
+.update-banner[hidden] { display: none; }
+.update-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+#updateNotes { white-space: pre-line; overflow: hidden; text-overflow: ellipsis; max-height: 3.6em; }
 
 /* Pantallas pequeñas */
 @media (max-height: 760px) {
