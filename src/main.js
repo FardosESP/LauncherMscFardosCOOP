@@ -652,7 +652,7 @@ function watchGameLog(dir, webContents) {
     // Solo mensajes conocidos del mod (cortados antes de cualquier resto de log de Unity).
     // Sin expresiones regulares con barras: se busca la marca y se corta en el primer «(» (resto del log de Unity).
     const coopMark = '[MSC Coop] ';
-    const knownMsg = /^(escuchando|conectado|desconectado|No se pudo|Versi|.* se ha (unido|desconectado))/;
+    const knownMsg = /^(escuchando|conectado|desconectado|No se pudo|Versi|Entrando a la partida|Aún no se encuentra|.* se ha (unido|desconectado)|.* (está en la partida|ha salido de la partida))/;
     let coop = '';
     for (const raw of text.split('\n')) {
       const at = raw.indexOf(coopMark);
