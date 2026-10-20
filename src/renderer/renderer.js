@@ -539,7 +539,9 @@ const updateInstall = $('updateInstall');
 const updateLater = $('updateLater');
 let dismissedVersion = '';
 window.launcher.onUpdateState((s) => {
-  const show = (s.phase === 'downloading' || s.phase === 'ready') && s.version !== dismissedVersion;
+  // Las comprobaciones periódicas («checking», «none») no ocultan un aviso ya mostrado.
+  if (s.phase !== 'downloading' && s.phase !== 'ready') return;
+  const show = s.version !== dismissedVersion;
   banner.hidden = !show;
   updateInstall.hidden = s.phase !== 'ready';
   updateLater.hidden = s.phase !== 'ready';

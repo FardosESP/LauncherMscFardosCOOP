@@ -811,34 +811,45 @@ function setupAutoUpdate(win) {
   updateWindow = win;
   let pendingVersion = '';
   let pendingNotes = '';
+  // Versión ya descargada y pendiente de instalar: mientras exista, no se pisa su aviso ni se vuelve a comprobar.
+  let readyVersion = '';
+  // Descarga en curso: no se vuelve a comprobar hasta que termine (evita reiniciar la descarga).
+  let downloading = false;
   autoUpdater.autoDownload = true;
   // Si el usuario no pulsa «Instalar ahora», se aplica al cerrar el launcher.
   autoUpdater.autoInstallOnAppQuit = autoInstallEnabled();
   autoUpdater.logger = { info: (m) => updaterLog(`info ${m}`), warn: (m) => updaterLog(`warn ${m}`), error: (m) => updaterLog(`error ${m}`), debug: () => {} };
-  autoUpdater.on('checking-for-update', () => sendUpdate({ phase: 'checking' }));
+  autoUpdater.on('checking-for-update', () => { if (!readyVersion) sendUpdate({ phase: 'checking' }); });
   autoUpdater.on('update-available', (info) => {
     pendingVersion = info.version;
     pendingNotes = releaseNotesText(info.releaseNotes);
+    downloading = true;
     updaterLog(`disponible ${info.version}`);
     sendUpdate({ phase: 'downloading', version: pendingVersion, notes: pendingNotes, percent: 0 });
   });
   autoUpdater.on('download-progress', (p) => sendUpdate({
     phase: 'downloading', version: pendingVersion, notes: pendingNotes, percent: Math.round(p.percent),
   }));
-  autoUpdater.on('update-not-available', () => sendUpdate({ phase: 'none' }));
+  autoUpdater.on('update-not-available', () => { if (!readyVersion) sendUpdate({ phase: 'none' }); });
   autoUpdater.on('update-downloaded', (info) => {
     updaterLog(`descargada ${info.version}`);
+    readyVersion = info.version;
+    downloading = false;
     sendUpdate({ phase: 'ready', version: info.version, notes: releaseNotesText(info.releaseNotes) });
     if (autoInstallEnabled()) installWhenIdle(info.version);
   });
   autoUpdater.on('error', (err) => {
+    downloading = false;
     updaterLog(`error ${err && err.message ? err.message : err}`);
     sendUpdate({ phase: 'error' });
   });
 
   // Comprueba al arrancar, cada minuto y al volver a la ventana, para pillar versiones nuevas con la app abierta.
   // Es lo más rápido sin servidor propio: GitHub no avisa en tiempo real.
-  const check = () => autoUpdater.checkForUpdates().catch((e) => updaterLog(`check ${e.message}`));
+  const check = () => {
+    if (readyVersion || downloading) return;
+    autoUpdater.checkForUpdates().catch((e) => updaterLog(`check ${e.message}`));
+  };
   check();
   setInterval(check, 60 * 1000);
   win.on('focus', check);
