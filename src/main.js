@@ -664,10 +664,11 @@ function setupAutoUpdate(win) {
     sendUpdate({ phase: 'error' });
   });
 
-  // Comprueba al arrancar, cada 15 minutos y al volver a la ventana, para pillar versiones nuevas con la app abierta.
+  // Comprueba al arrancar, cada minuto y al volver a la ventana, para pillar versiones nuevas con la app abierta.
+  // Es lo más rápido sin servidor propio: GitHub no avisa en tiempo real.
   const check = () => autoUpdater.checkForUpdates().catch((e) => updaterLog(`check ${e.message}`));
   check();
-  setInterval(check, 15 * 60 * 1000);
+  setInterval(check, 60 * 1000);
   win.on('focus', check);
 }
 
