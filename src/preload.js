@@ -18,6 +18,8 @@ contextBridge.exposeInMainWorld('launcher', {
   showReport: (p) => ipcRenderer.invoke('diag:show', p),
   openTailscale: () => ipcRenderer.invoke('tailscale:open'),
   openTailscaleKeys: () => ipcRenderer.invoke('tailscale:keys'),
+  tailscaleStatus: () => ipcRenderer.invoke('tailscale:status'),
+  tailscalePing: (ip) => ipcRenderer.invoke('tailscale:ping', ip),
   loginTailscale: (key) => ipcRenderer.invoke('tailscale:login', key),
   openModsFolder: () => ipcRenderer.invoke('mods:open'),
   copyText: (text) => ipcRenderer.invoke('clipboard:write', text),

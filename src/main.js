@@ -381,6 +381,45 @@ ipcMain.handle('loader:install', (_e, gameDir) => {
 ipcMain.handle('tailscale:open', () => shell.openExternal(TAILSCALE_URL));
 ipcMain.handle('tailscale:keys', () => shell.openExternal(TAILSCALE_KEYS_URL));
 
+// Estado de Tailscale: si está conectado, tu IP, la red y los compañeros en línea.
+function tailscaleStatus() {
+  return new Promise((resolve) => {
+    if (!tailscaleInstalled()) return resolve({ installed: false });
+    execFile(TAILSCALE_EXE, ['status', '--json'], { timeout: 8000, windowsHide: true, maxBuffer: 5 * 1024 * 1024 }, (err, stdout) => {
+      if (err) return resolve({ installed: true, running: false, error: 'Tailscale no responde. Comprueba que el servicio esté iniciado.' });
+      try {
+        const j = JSON.parse(stdout);
+        const self = j.Self || {};
+        const peers = Object.values(j.Peer || {}).map((p) => ({
+          name: p.HostName || '?',
+          ip: (p.TailscaleIPs || []).find((x) => x.startsWith('100.')) || '',
+          online: !!p.Online,
+        }));
+        resolve({
+          installed: true,
+          running: j.BackendState === 'Running',
+          name: self.HostName || '',
+          ip: (self.TailscaleIPs || []).find((x) => x.startsWith('100.')) || '',
+          tailnet: (j.CurrentTailnet && j.CurrentTailnet.Name) || '',
+          peers,
+        });
+      } catch {
+        resolve({ installed: true, running: false, error: 'No se pudo leer el estado de Tailscale.' });
+      }
+    });
+  });
+}
+ipcMain.handle('tailscale:status', () => tailscaleStatus());
+
+// Comprueba si el anfitrión responde en la red de Tailscale.
+ipcMain.handle('tailscale:ping', (_e, ip) => new Promise((resolve) => {
+  const target = String(ip || '').trim();
+  if (!/^100\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(target)) return resolve({ ok: false, error: 'La IP debe tener el formato 100.x.x.x.' });
+  execFile(TAILSCALE_EXE, ['ping', '--c', '1', '--timeout', '4s', target], { timeout: 10000, windowsHide: true }, (err, stdout) => {
+    resolve({ ok: !err && /pong/i.test(stdout), detail: (stdout || '').trim().slice(0, 200) });
+  });
+}));
+
 // Conecta esta máquina a la red de Tailscale con una clave de invitación (no hace falta iniciar sesión).
 // La clave se usa una vez y no se guarda.
 ipcMain.handle('tailscale:login', (_e, key) => {

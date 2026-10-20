@@ -179,6 +179,20 @@
           </ul>
         </div>
 
+        <div class="card" id="tsStatusCard">
+          <div class="card-title">Conexión Tailscale</div>
+          <div class="row">
+            <span class="chip" id="tsState">—</span>
+            <span class="muted" id="tsInfo"></span>
+          </div>
+          <ul class="checks" id="tsPeers"></ul>
+          <div class="row-actions">
+            <button class="secondary" id="tsRefresh">Actualizar</button>
+            <button class="secondary" id="tsPing">Probar anfitrión</button>
+          </div>
+          <p class="muted" id="tsPingResult"></p>
+        </div>
+
         <div class="card" id="tsKeyCard" hidden>
           <div class="card-title">Conectar Tailscale</div>
           <p class="muted">Tu amigo necesita una clave de invitación de tu red. Pídela al anfitrión: él la crea en Tailscale (botón «Crear clave») y te la pasa. No hace falta cuenta.</p>

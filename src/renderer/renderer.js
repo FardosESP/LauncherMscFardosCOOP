@@ -106,6 +106,7 @@ async function refresh(gameDir) {
   ui.port.value = s.settings.port || 25565;
   ui.playerName.value = s.settings.playerName || '';
   render();
+  refreshTailscaleStatus();
   if (state.game && state.loader && !s.build) setStatus('Tu juego no es la versión probada (build 20171487). El mod puede fallar.', 'bad');
   else if (state.game && state.loader) setStatus('Todo listo. Pulsa Jugar para empezar.', 'ok');
   else if (state.game) setStatus('Falta instalar MSCLoader. Ve a Estado.', 'bad');
@@ -185,6 +186,49 @@ ui.tsConnect.addEventListener('click', async () => {
   }
 });
 ui.tsKeysLink.addEventListener('click', () => window.launcher.openTailscaleKeys());
+
+// Estado de Tailscale: conectado o no, tu IP, la red y los compañeros en línea.
+async function refreshTailscaleStatus() {
+  const s = await window.launcher.tailscaleStatus();
+  const state = $('tsState');
+  const info = $('tsInfo');
+  const peers = $('tsPeers');
+  peers.innerHTML = '';
+  if (!s.installed) {
+    chip(state, false, '', 'No instalado');
+    info.textContent = 'Instala Tailscale para jugar a distancia.';
+    return;
+  }
+  if (!s.running) {
+    chip(state, false, '', 'No conectado');
+    info.textContent = s.error || 'Pega una clave de invitación para conectarte.';
+    return;
+  }
+  chip(state, true, 'Conectado', '');
+  const online = s.peers.filter((p) => p.online);
+  info.textContent = `Tu IP: ${s.ip || '—'} · Red: ${s.tailnet || '—'} · En línea: ${online.length}`;
+  for (const p of online.slice(0, 10)) {
+    const li = document.createElement('li');
+    li.innerHTML = '';
+    const name = document.createElement('span');
+    name.textContent = `${p.name} (${p.ip})`;
+    const badge = document.createElement('span');
+    badge.className = 'chip ok';
+    badge.textContent = 'En línea';
+    li.append(name, badge);
+    peers.appendChild(li);
+  }
+}
+
+$('tsRefresh').addEventListener('click', refreshTailscaleStatus);
+$('tsPing').addEventListener('click', async () => {
+  const result = $('tsPingResult');
+  result.textContent = 'Probando…';
+  const res = await window.launcher.tailscalePing(ui.address.value.trim());
+  result.textContent = res.ok
+    ? `El anfitrión ${ui.address.value.trim()} responde. Ya puedes unirte.`
+    : (res.error || `El anfitrión ${ui.address.value.trim()} no responde. Revisa que esté conectado a la misma red.`);
+});
 
 let lastReport = '';
 ui.runDiag = $('runDiag');
