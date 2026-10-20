@@ -5,7 +5,7 @@ const os = require('os');
 const https = require('https');
 const crypto = require('crypto');
 const { autoUpdater } = require('electron-updater');
-const { execFile, spawn } = require('child_process');
+const { execFile, execFileSync, spawn } = require('child_process');
 
 const TAILSCALE_EXE = 'C:\\Program Files\\Tailscale\\tailscale.exe';
 const TAILSCALE_URL = 'https://tailscale.com/download';
@@ -433,8 +433,20 @@ ipcMain.handle('backup:restore', (_e, gameDir) => {
 
 // Instala o repara MSCLoader y el mod desde el paquete del launcher. Es seguro llamarla varias veces:
 // solo copia lo que falta o no coincide, y guarda copia de seguridad antes de tocar nada.
+const GAME_BUSY = 'El juego está abierto. Ciérralo para actualizar MSCLoader y el mod.';
+function gameRunning() {
+  try {
+    return execFileSync('tasklist', ['/FI', 'IMAGENAME eq mysummercar.exe', '/NH'], { windowsHide: true, encoding: 'utf8' })
+      .toLowerCase().includes('mysummercar.exe');
+  } catch {
+    return false;
+  }
+}
+
 function installLoaderFiles(dir) {
   if (!isGameDir(dir)) return { ok: false, error: 'Elige primero la carpeta del juego.' };
+  // Con el juego abierto, Windows bloquea sus DLL: no se intenta copiar.
+  if (gameRunning()) return { ok: false, busy: true, error: GAME_BUSY };
   const bundle = path.join(toolsDir(), 'msc-loader');
   if (!fs.existsSync(bundle)) return { ok: false, error: 'Falta el paquete de MSCLoader dentro del launcher.' };
   try {
@@ -453,6 +465,8 @@ function installLoaderFiles(dir) {
     // El mod también se instala aquí, para que aparezca en MSCLoader sin tener que pulsar Jugar.
     fs.copyFileSync(path.join(toolsDir(), 'MscCoop.dll'), path.join(dir, 'Mods', 'MscCoop.dll'));
   } catch (e) {
+    // EBUSY/EPERM: un archivo está en uso (normalmente el juego). Se pide cerrarlo en vez de mostrar el error técnico.
+    if (e.code === 'EBUSY' || e.code === 'EPERM') return { ok: false, busy: true, error: GAME_BUSY };
     return { ok: false, error: `No se pudo instalar MSCLoader: ${e.message}` };
   }
   return { ok: true };

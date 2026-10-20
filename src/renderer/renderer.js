@@ -282,8 +282,13 @@ async function refreshRequirements() {
     autoRepairFor = dir;
     setStatus('Actualizando MSCLoader y el mod automáticamente…');
     const res = await window.launcher.installLoader(dir);
-    if (res.ok) await refresh(dir);
-    else setStatus(res.error, 'bad');
+    if (res.ok) {
+      await refresh(dir);
+    } else {
+      // Si está ocupado (juego abierto), se reintenta en la próxima comprobación en vez de darlo por hecho.
+      if (res.busy) autoRepairFor = '';
+      setStatus(res.error, 'bad');
+    }
     return;
   }
   const list = $('reqList');
