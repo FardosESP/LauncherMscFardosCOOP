@@ -34,6 +34,16 @@ function saveSettings(s) {
 }
 
 const isGameDir = (dir) => !!dir && fs.existsSync(path.join(dir, 'mysummercar.exe'));
+
+// Build del juego con la que se probó el mod (Assembly-CSharp.dll). Si no coincide, puede fallar.
+const TESTED_BUILD_ASSEMBLY_SIZE = 1396736;
+const gameBuildOk = (dir) => {
+  try {
+    return fs.statSync(path.join(dir, 'mysummercar_Data', 'Managed', 'Assembly-CSharp.dll')).size === TESTED_BUILD_ASSEMBLY_SIZE;
+  } catch {
+    return false;
+  }
+};
 const loaderInstalled = (dir) =>
   isGameDir(dir) && fs.existsSync(path.join(dir, 'Mods')) && fs.existsSync(path.join(dir, 'winhttp.dll'));
 const tailscaleInstalled = () => fs.existsSync(TAILSCALE_EXE);
@@ -119,6 +129,7 @@ async function getState(override) {
     settings,
     game: isGameDir(dir),
     loader: loaderInstalled(dir),
+    build: gameBuildOk(dir),
     tailscale: tailscaleInstalled(),
     tailscaleIp: await tailscaleIp(),
     firewall: await firewallOpen(settings.port),
@@ -193,6 +204,12 @@ ipcMain.handle('loader:install', (_e, gameDir) => {
   const bundle = path.join(toolsDir(), 'msc-loader');
   if (!fs.existsSync(bundle)) return { ok: false, error: 'Falta el paquete de MSCLoader dentro del launcher.' };
   try {
+    // Si ya hay un winhttp.dll distinto, se guarda una copia antes de reemplazarlo.
+    const target = path.join(dir, 'winhttp.dll');
+    const src = path.join(bundle, 'root', 'winhttp.dll');
+    if (fs.existsSync(target) && !fs.readFileSync(target).equals(fs.readFileSync(src)) && !fs.existsSync(`${target}.orig`)) {
+      fs.renameSync(target, `${target}.orig`);
+    }
     copyDir(path.join(bundle, 'root'), dir);
     copyDir(path.join(bundle, 'Managed'), path.join(dir, 'mysummercar_Data', 'Managed'));
     fs.mkdirSync(path.join(dir, 'Mods'), { recursive: true });
@@ -301,6 +318,32 @@ ipcMain.handle('clipboard:write', (_e, text) => {
   return true;
 });
 
+// Vigila output_log.txt tras lanzar el juego y avisa si MSCLoader o el mod fallan.
+function watchGameLog(dir, webContents) {
+  const log = path.join(dir, 'output_log.txt');
+  const started = Date.now();
+  const send = (text, kind) => {
+    if (!webContents.isDestroyed()) webContents.send('game:status', { text, kind });
+  };
+  send('Juego iniciado. Comprobando que MSCLoader y el mod cargan…', '');
+  const timer = setInterval(() => {
+    let text = '';
+    try { text = fs.readFileSync(log, 'utf8'); } catch { /* aún no existe */ }
+    if (/crashed during load|Could not load type|Mod .* has thrown an error/.test(text)) {
+      clearInterval(timer);
+      return send('El mod ha fallado al cargar. Pulsa «Reparar MSCLoader» y, si sigue, pásanos output_log.txt.', 'bad');
+    }
+    if (/Loaded [1-9]\d* mods?/.test(text)) {
+      clearInterval(timer);
+      return send('MSCLoader y el mod cargados correctamente.', 'ok');
+    }
+    if (Date.now() - started > 120000) {
+      clearInterval(timer);
+      send('MSCLoader no se ha cargado. Pulsa «Reparar MSCLoader» y vuelve a intentarlo.', 'bad');
+    }
+  }, 2000);
+}
+
 ipcMain.handle('game:launch', (_e, payload) => {
   const { gameDir, mode, address, port, playerName, tailscaleIp: ip } = payload;
   if (!isGameDir(gameDir)) return { ok: false, error: 'Elige primero la carpeta del juego.' };
@@ -329,7 +372,10 @@ ipcMain.handle('game:launch', (_e, payload) => {
   }
 
   saveSettings({ gameDir, mode, address: address || '', port: config.Port, playerName: config.PlayerName });
+  // Se borra el log anterior para que la comprobación solo mire esta ejecución.
+  fs.rmSync(path.join(gameDir, 'output_log.txt'), { force: true });
   spawn(path.join(gameDir, 'mysummercar.exe'), [], { cwd: gameDir, detached: true, stdio: 'ignore' }).unref();
+  watchGameLog(gameDir, _e.sender);
   return { ok: true, config };
 });
 

@@ -72,7 +72,8 @@ function render() {
   chip(ui.chipTailscale, state.tailscale, 'Instalado', 'No instalado');
   chip(ui.chipFirewall, state.firewall, 'Abierto', 'Cerrado');
 
-  ui.installLoader.hidden = !state.game || state.loader;
+  ui.installLoader.hidden = !state.game;
+  ui.installLoader.textContent = state.loader ? 'Reparar MSCLoader' : 'Instalar';
   ui.openTailscale.hidden = state.tailscale;
   ui.openFirewall.hidden = state.firewall;
   ui.tsKeyCard.hidden = !state.tailscale || !!state.tailscaleIp;
@@ -104,7 +105,8 @@ async function refresh(gameDir) {
   ui.port.value = s.settings.port || 25565;
   ui.playerName.value = s.settings.playerName || '';
   render();
-  if (state.game && state.loader) setStatus('Todo listo. Pulsa Jugar para empezar.', 'ok');
+  if (state.game && state.loader && !s.build) setStatus('Tu juego no es la versión probada (build 20171487). El mod puede fallar.', 'bad');
+  else if (state.game && state.loader) setStatus('Todo listo. Pulsa Jugar para empezar.', 'ok');
   else if (state.game) setStatus('Falta instalar MSCLoader. Ve a Estado.', 'bad');
   else setStatus('No encuentro My Summer Car. Ve a Configuración para indicar la carpeta.', 'bad');
 }
@@ -236,6 +238,9 @@ ui.gameDir.addEventListener('change', () => refresh(ui.gameDir.value.trim()));
 // Estado de actualización: se muestra en la barra de estado sin tapar otros mensajes importantes.
 if (window.launcher.onUpdateStatus) {
   window.launcher.onUpdateStatus(({ text, kind }) => setStatus(text, kind));
+}
+if (window.launcher.onGameStatus) {
+  window.launcher.onGameStatus(({ text, kind }) => setStatus(text, kind));
 }
 
 refresh();

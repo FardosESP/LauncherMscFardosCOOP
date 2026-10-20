@@ -8,3 +8,4 @@ tools/MSCLInstaller.exe
 tools/MSCLInstaller.exe.config
 tools/INIFileParser.dll
 tools/Ionic.Zip.Reduced.dll
+dist-nsis/

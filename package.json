@@ -45,8 +45,8 @@
     },
     "publish": {
       "provider": "github",
-      "owner": "TU_USUARIO_GITHUB",
-      "repo": "fardos-msc-coop-releases",
+      "owner": "FardosESP",
+      "repo": "LauncherMscFardosCOOP",
       "releaseType": "release"
     }
   },
