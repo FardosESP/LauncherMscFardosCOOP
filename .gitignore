@@ -1,0 +1,10 @@
+node_modules/
+dist/
+dist-new/
+build/app.ico.bak
+# Binarios de terceros (MSCLoader e instalador): no se suben al repo
+tools/msc-loader/
+tools/MSCLInstaller.exe
+tools/MSCLInstaller.exe.config
+tools/INIFileParser.dll
+tools/Ionic.Zip.Reduced.dll

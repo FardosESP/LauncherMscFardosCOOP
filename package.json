@@ -1,0 +1,44 @@
+{
+  "name": "fardos-msc-coop",
+  "productName": "Fardos MSC Coop",
+  "version": "1.0.0",
+  "description": "Launcher multijugador cooperativo para My Summer Car",
+  "author": "Fardos",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable"
+  },
+  "build": {
+    "appId": "com.fardos.msccoop",
+    "productName": "Fardos MSC Coop",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "icon": "build/app.ico",
+      "artifactName": "Fardos-MSC-Coop-${version}.exe"
+    },
+    "extraResources": [
+      {
+        "from": "tools",
+        "to": "tools"
+      }
+    ],
+    "files": [
+      "src/**/*",
+      "build/**/*",
+      "package.json"
+    ]
+  },
+  "devDependencies": {
+    "electron": "^44.9.1",
+    "electron-builder": "^26.15.3"
+  }
+}

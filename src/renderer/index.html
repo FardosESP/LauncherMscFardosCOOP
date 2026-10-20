@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'">
+  <title>Fardos MSC Coop</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">F</div>
+        <div>
+          <div class="brand-name">Fardos MSC Coop</div>
+          <div class="brand-sub">My Summer Car · Co-op</div>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-item active" data-view="play">Jugar</button>
+        <button class="nav-item" data-view="settings">Configuración</button>
+        <button class="nav-item" data-view="status">Estado</button>
+      </nav>
+
+      <div class="sidebar-foot">
+        <div class="ready" id="readyBadge"><span class="dot"></span><span id="readyText">Comprobando…</span></div>
+        <div class="version" id="version"></div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <!-- Vista: Jugar -->
+      <section class="view active" id="view-play">
+        <header class="view-head">
+          <h1>Jugar</h1>
+          <p>Elige cómo quieres conectar y arranca el juego.</p>
+        </header>
+
+        <div class="card">
+          <div class="card-title">Modo de conexión</div>
+          <div class="segmented" role="radiogroup" aria-label="Modo de conexión">
+            <input type="radio" name="mode" id="modeHost" value="host" checked>
+            <label for="modeHost">Anfitrión</label>
+            <input type="radio" name="mode" id="modeJoin" value="client">
+            <label for="modeJoin">Unirme a un amigo</label>
+          </div>
+
+          <div id="hostPanel" class="panel">
+            <p class="muted">Tu dirección de Tailscale. Compártela con tu amigo para que se conecte.</p>
+            <div class="ip-box">
+              <span class="ip" id="ip">—</span>
+              <button class="secondary" id="copyIp" disabled>Copiar IP</button>
+            </div>
+            <div class="notice" id="firewallNotice" hidden>
+              <span>Windows bloquea el puerto de partida. Tu amigo no podrá entrar hasta abrirlo.</span>
+              <button class="secondary" id="openFirewallBtn">Abrir puerto</button>
+            </div>
+          </div>
+
+          <div id="joinPanel" class="panel" hidden>
+            <p class="muted">Pide a tu amigo su IP de Tailscale y el puerto del juego.</p>
+            <div class="grid-2">
+              <div>
+                <label class="field-label" for="address">IP del anfitrión</label>
+                <input id="address" type="text" spellcheck="false" placeholder="100.x.x.x">
+              </div>
+              <div>
+                <label class="field-label" for="port">Puerto</label>
+                <input id="port" type="number" min="1" max="65535" value="25565">
+              </div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="playerName">Tu nombre en la partida</label>
+            <input id="playerName" type="text" maxlength="24">
+          </div>
+        </div>
+
+        <div class="footer-bar">
+          <p id="status" class="status"></p>
+          <button class="primary" id="play" disabled>Jugar</button>
+        </div>
+      </section>
+
+      <!-- Vista: Configuración -->
+      <section class="view" id="view-settings" hidden>
+        <header class="view-head">
+          <h1>Configuración</h1>
+          <p>Carpeta del juego y ajustes generales.</p>
+        </header>
+
+        <div class="card">
+          <div class="card-title">Carpeta de My Summer Car</div>
+          <div class="row">
+            <input id="gameDir" type="text" spellcheck="false" placeholder="No encontrada todavía">
+            <button class="secondary" id="browse">Examinar…</button>
+          </div>
+          <div class="row-actions">
+            <button class="ghost" id="autoDetect">Buscar automáticamente</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Mods</div>
+          <p class="muted">Los ajustes del mod (nombres encima de los jugadores, distancia) están en el menú de MSCLoader, sección <b>FardosCoop</b>.</p>
+          <div class="row-actions">
+            <button class="secondary" id="openMods">Abrir carpeta Mods</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Vista: Estado -->
+      <section class="view" id="view-status" hidden>
+        <header class="view-head">
+          <h1>Estado</h1>
+          <p>Requisitos para jugar en cooperativo.</p>
+        </header>
+
+        <div class="card">
+          <ul class="checks">
+            <li>
+              <div class="check-info">
+                <div class="check-name">My Summer Car</div>
+                <div class="check-desc">Juego instalado en la carpeta indicada</div>
+              </div>
+              <span class="chip" id="chipGame">—</span>
+            </li>
+            <li>
+              <div class="check-info">
+                <div class="check-name">MSCLoader</div>
+                <div class="check-desc">Cargador de mods que usa el juego</div>
+              </div>
+              <span class="chip" id="chipLoader">—</span>
+              <button class="ghost small" id="installLoader" hidden>Instalar</button>
+            </li>
+            <li>
+              <div class="check-info">
+                <div class="check-name">Firewall</div>
+                <div class="check-desc">Permite que tu amigo entre en tu partida (puerto de partida)</div>
+              </div>
+              <span class="chip" id="chipFirewall">—</span>
+              <button class="ghost small" id="openFirewall" hidden>Abrir puerto</button>
+            </li>
+            <li>
+              <div class="check-info">
+                <div class="check-name">Tailscale</div>
+                <div class="check-desc">Red privada para conectar con tu amigo</div>
+              </div>
+              <span class="chip" id="chipTailscale">—</span>
+              <button class="ghost small" id="openTailscale" hidden>Instalar</button>
+            </li>
+          </ul>
+        </div>
+
+        <div class="card" id="tsKeyCard" hidden>
+          <div class="card-title">Conectar Tailscale</div>
+          <p class="muted">Tu amigo necesita una clave de invitación de tu red. Pídela al anfitrión: él la crea en Tailscale (botón «Crear clave») y te la pasa. No hace falta cuenta.</p>
+          <div class="row">
+            <input id="tsKey" type="text" spellcheck="false" placeholder="tskey-auth-…">
+            <button class="primary" id="tsConnect">Conectar</button>
+          </div>
+          <div class="row-actions">
+            <button class="ghost small" id="tsKeysLink">Crear clave (anfitrión)</button>
+          </div>
+        </div>
+
+        <div class="row-actions">
+          <button class="secondary" id="recheck">Volver a comprobar</button>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="renderer.js"></script>
+</body>
+</html>
