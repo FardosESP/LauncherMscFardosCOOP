@@ -835,9 +835,16 @@ function startSessionLogs(gameDir) {
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const dest = path.join(logsDir(), stamp);
   fs.mkdirSync(dest, { recursive: true });
+  const settings = loadSettings();
+  const shared = settings.shareLogs === true && settings.sharedLogsFolder
+    ? path.join(settings.sharedLogsFolder, stamp) : null;
+  if (shared) fs.mkdirSync(shared, { recursive: true });
   const copyAll = () => {
     for (const f of SESSION_FILES) {
-      try { fs.copyFileSync(path.join(gameDir, f), path.join(dest, f)); } catch { /* aún no existe */ }
+      for (const target of [dest, shared]) {
+        if (!target) continue;
+        try { fs.copyFileSync(path.join(gameDir, f), path.join(target, f)); } catch { /* aún no existe */ }
+      }
     }
   };
   const timer = setInterval(() => {
@@ -857,6 +864,25 @@ function startSessionLogs(gameDir) {
 ipcMain.handle('logs:consent', (_e, value) => {
   saveSettings({ logsConsent: value === true });
   return true;
+});
+// Carpeta compartida: la elige el usuario y solo se usa si él la activa con el botón Aceptar.
+ipcMain.handle('share:pick', async (e) => {
+  const win = BrowserWindow.fromWebContents(e.sender);
+  const result = await dialog.showOpenDialog(win, {
+    title: 'Elige la carpeta compartida (OneDrive o Drive)',
+    properties: ['openDirectory', 'createDirectory'],
+  });
+  if (result.canceled || !result.filePaths[0]) return null;
+  saveSettings({ sharedLogsFolder: result.filePaths[0] });
+  return result.filePaths[0];
+});
+ipcMain.handle('share:set', (_e, value) => {
+  saveSettings({ shareLogs: value === true });
+  return true;
+});
+ipcMain.handle('share:get', () => {
+  const s = loadSettings();
+  return { enabled: s.shareLogs === true, folder: s.sharedLogsFolder || '' };
 });
 ipcMain.handle('logs:open', () => {
   fs.mkdirSync(logsDir(), { recursive: true });

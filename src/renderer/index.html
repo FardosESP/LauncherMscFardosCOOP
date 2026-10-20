@@ -151,6 +151,17 @@
         </div>
 
         <div class="card">
+          <div class="card-title">Enviar registros a una carpeta compartida</div>
+          <p class="muted">Solo si tú lo aceptas: cada partida se copia también a la carpeta que elijas (por ejemplo una de OneDrive o Drive compartida). Los registros pueden contener tu ruta de Windows y la IP de Tailscale. Puedes desactivarlo cuando quieras.</p>
+          <p class="muted" id="shareStatus">Desactivado.</p>
+          <div class="row-actions">
+            <button class="secondary" id="sharePick">Elegir carpeta</button>
+            <button class="primary small" id="shareAccept">Aceptar y activar</button>
+            <button class="ghost" id="shareOff">Desactivar</button>
+          </div>
+        </div>
+
+        <div class="card">
           <div class="card-title">Registros de partida</div>
           <p class="muted" id="logsStatus">Comprobando…</p>
           <div class="row-actions">

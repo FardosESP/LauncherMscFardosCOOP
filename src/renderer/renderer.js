@@ -386,6 +386,30 @@ $('logsOff').addEventListener('click', async () => {
 });
 $('logsOpen').addEventListener('click', () => window.launcher.openLogsFolder());
 
+// Carpeta compartida: el usuario elige la carpeta y acepta explícitamente.
+async function renderShare() {
+  const s = await window.launcher.getShareLogs();
+  $('shareStatus').textContent = s.enabled && s.folder
+    ? 'Activado: copiando registros a ' + s.folder
+    : (s.folder ? 'Desactivado. Carpeta elegida: ' + s.folder : 'Desactivado. Elige una carpeta primero.');
+}
+$('sharePick').addEventListener('click', async () => {
+  await window.launcher.pickSharedFolder();
+  renderShare();
+});
+$('shareAccept').addEventListener('click', async () => {
+  const s = await window.launcher.getShareLogs();
+  if (!s.folder) return setStatus('Primero elige una carpeta.', 'bad');
+  if (!window.confirm('Se copiarán los registros de cada partida a: ' + s.folder + '\n\n¿Aceptas?')) return;
+  await window.launcher.setShareLogs(true);
+  renderShare();
+});
+$('shareOff').addEventListener('click', async () => {
+  await window.launcher.setShareLogs(false);
+  renderShare();
+});
+renderShare();
+
 // Instalación automática de actualizaciones: un botón que alterna Sí / No.
 async function renderAutoInstall() {
   const on = await window.launcher.getAutoInstall();
