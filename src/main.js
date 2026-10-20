@@ -240,7 +240,7 @@ async function requirementsStatus(gameDirInput) {
     { id: 'mod', label: 'Mod MscCoop instalado y actualizado', ok: modOk, needed: true, fix: 'loader', detail: modOk ? 'Correcto (se actualiza al pulsar Jugar)' : 'Se copiará al pulsar Jugar' },
     { id: 'tailscale', label: 'Tailscale instalado', ok: !!ts.installed, needed: false, fix: 'tailscale', detail: ts.installed ? 'Sí' : 'Solo hace falta para jugar a distancia' },
     { id: 'tsconnected', label: 'Tailscale conectado a la red', ok: !!(ts.installed && ts.running && ts.ip), needed: false, fix: 'tskey', detail: ts.running ? `IP ${ts.ip || '—'}` : (ts.error || 'Pega una clave de invitación') },
-    { id: 'firewall', label: `Firewall abierto en el puerto ${settings.port} (anfitrión)`, ok: await firewallOpen(settings.port), needed: false, fix: 'firewall', detail: 'Solo lo necesita quien crea la partida' },
+    { id: 'firewall', label: `Firewall abierto en los puertos ${settings.port} y ${settings.port + 1} (anfitrión)`, ok: (await firewallOpen(settings.port)) && (await firewallOpen(settings.port + 1)), needed: false, fix: 'firewall', detail: 'Solo lo necesita quien crea la partida' },
   ];
 }
 
