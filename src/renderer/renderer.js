@@ -281,15 +281,19 @@ async function refreshRequirements() {
   if (broken && dir && autoRepairFor !== dir) {
     autoRepairFor = dir;
     setStatus('Actualizando MSCLoader y el mod automáticamente…');
-    const res = await window.launcher.installLoader(dir);
+    let res;
+    try {
+      res = await window.launcher.installLoader(dir);
+    } catch (e) {
+      res = { ok: false, error: `No se pudo reparar automáticamente: ${e.message}` };
+    }
     if (res.ok) {
       await refresh(dir);
-    } else {
-      // Si está ocupado (juego abierto), se reintenta en la próxima comprobación en vez de darlo por hecho.
-      if (res.busy) autoRepairFor = '';
-      setStatus(res.error, 'bad');
+      return;
     }
-    return;
+    // Si está ocupado (juego abierto), se reintenta en la próxima comprobación. La lista se pinta igualmente.
+    if (res.busy) autoRepairFor = '';
+    setStatus(res.error, 'bad');
   }
   const list = $('reqList');
   list.innerHTML = '';
