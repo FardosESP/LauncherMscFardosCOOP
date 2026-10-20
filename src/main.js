@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const https = require('https');
+const { autoUpdater } = require('electron-updater');
 const { execFile, spawn } = require('child_process');
 
 const TAILSCALE_EXE = 'C:\\Program Files\\Tailscale\\tailscale.exe';
@@ -332,8 +333,23 @@ ipcMain.handle('game:launch', (_e, payload) => {
   return { ok: true, config };
 });
 
+// Auto-actualización: al arrancar busca una versión nueva en GitHub Releases, la descarga y la instala al cerrar.
+function setupAutoUpdate(win) {
+  if (!app.isPackaged) return;
+  const send = (text, kind = '') => {
+    if (!win.isDestroyed()) win.webContents.send('update:status', { text, kind });
+  };
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.on('update-available', (info) => send(`Descargando la versión ${info.version}…`, 'ok'));
+  autoUpdater.on('update-downloaded', (info) => send(`Versión ${info.version} lista. Se instalará al cerrar el launcher.`, 'ok'));
+  autoUpdater.on('error', () => send('No se pudo comprobar actualizaciones. Se seguirá con la versión actual.'));
+  autoUpdater.checkForUpdates().catch(() => {});
+}
+
 app.whenReady().then(() => {
   createWindow();
+  setupAutoUpdate(BrowserWindow.getAllWindows()[0]);
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

@@ -20,7 +20,7 @@
     },
     "win": {
       "target": [
-        "portable"
+        "nsis"
       ],
       "icon": "build/app.ico",
       "artifactName": "Fardos-MSC-Coop-${version}.exe"
@@ -35,10 +35,26 @@
       "src/**/*",
       "build/**/*",
       "package.json"
-    ]
+    ],
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "TU_USUARIO_GITHUB",
+      "repo": "fardos-msc-coop-releases",
+      "releaseType": "release"
+    }
   },
   "devDependencies": {
     "electron": "^44.9.1",
     "electron-builder": "^26.15.3"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
   }
 }

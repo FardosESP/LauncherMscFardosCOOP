@@ -233,4 +233,9 @@ ui.modeJoin.addEventListener('change', render);
 ui.play.addEventListener('click', play);
 ui.gameDir.addEventListener('change', () => refresh(ui.gameDir.value.trim()));
 
+// Estado de actualización: se muestra en la barra de estado sin tapar otros mensajes importantes.
+if (window.launcher.onUpdateStatus) {
+  window.launcher.onUpdateStatus(({ text, kind }) => setStatus(text, kind));
+}
+
 refresh();

@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('launcher', {
   installLoader: (gameDir) => ipcRenderer.invoke('loader:install', gameDir),
   installTailscale: () => ipcRenderer.invoke('tailscale:install'),
   openFirewall: (port) => ipcRenderer.invoke('firewall:open', port),
+  onUpdateStatus: (cb) => ipcRenderer.on('update:status', (_e, s) => cb(s)),
   openTailscale: () => ipcRenderer.invoke('tailscale:open'),
   openTailscaleKeys: () => ipcRenderer.invoke('tailscale:keys'),
   loginTailscale: (key) => ipcRenderer.invoke('tailscale:login', key),
