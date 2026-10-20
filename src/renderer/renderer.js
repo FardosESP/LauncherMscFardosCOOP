@@ -386,6 +386,18 @@ $('logsOff').addEventListener('click', async () => {
 });
 $('logsOpen').addEventListener('click', () => window.launcher.openLogsFolder());
 
+// Instalación automática de actualizaciones: un botón que alterna Sí / No.
+async function renderAutoInstall() {
+  const on = await window.launcher.getAutoInstall();
+  $('autoInstallBtn').textContent = 'Instalar automáticamente: ' + (on ? 'Sí' : 'No');
+}
+$('autoInstallBtn').addEventListener('click', async () => {
+  const on = await window.launcher.getAutoInstall();
+  await window.launcher.setAutoInstall(!on);
+  renderAutoInstall();
+});
+renderAutoInstall();
+
 let lastReport = '';
 ui.runDiag = $('runDiag');
 ui.showDiag = $('showDiag');

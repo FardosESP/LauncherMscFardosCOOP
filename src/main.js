@@ -779,7 +779,7 @@ function setupAutoUpdate(win) {
   let pendingNotes = '';
   autoUpdater.autoDownload = true;
   // Si el usuario no pulsa «Instalar ahora», se aplica al cerrar el launcher.
-  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.autoInstallOnAppQuit = autoInstallEnabled();
   autoUpdater.logger = { info: (m) => updaterLog(`info ${m}`), warn: (m) => updaterLog(`warn ${m}`), error: (m) => updaterLog(`error ${m}`), debug: () => {} };
   autoUpdater.on('checking-for-update', () => sendUpdate({ phase: 'checking' }));
   autoUpdater.on('update-available', (info) => {
@@ -795,7 +795,7 @@ function setupAutoUpdate(win) {
   autoUpdater.on('update-downloaded', (info) => {
     updaterLog(`descargada ${info.version}`);
     sendUpdate({ phase: 'ready', version: info.version, notes: releaseNotesText(info.releaseNotes) });
-    installWhenIdle(info.version);
+    if (autoInstallEnabled()) installWhenIdle(info.version);
   });
   autoUpdater.on('error', (err) => {
     updaterLog(`error ${err && err.message ? err.message : err}`);
@@ -813,6 +813,16 @@ function setupAutoUpdate(win) {
 ipcMain.handle('update:check', () => autoUpdater.checkForUpdates().then(() => true).catch(() => false));
 // Cierra el launcher y arranca la nueva versión.
 ipcMain.handle('update:install', () => autoUpdater.quitAndInstall(false, true));
+// Instalación automática de actualizaciones: activada por defecto; se puede desactivar en Configuración.
+function autoInstallEnabled() {
+  return loadSettings().autoInstallUpdates !== false;
+}
+ipcMain.handle('update:auto', (_e, value) => {
+  saveSettings({ autoInstallUpdates: value === true });
+  autoUpdater.autoInstallOnAppQuit = value === true;
+  return true;
+});
+ipcMain.handle('update:autoGet', () => autoInstallEnabled());
 
 // ---------- Registros de partida (solo si el usuario lo acepta) ----------
 const LOGS_TO_KEEP = 10;

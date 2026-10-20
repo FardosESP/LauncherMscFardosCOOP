@@ -12,6 +12,8 @@ contextBridge.exposeInMainWorld('launcher', {
   onUpdateState: (cb) => ipcRenderer.on('update:state', (_e, s) => cb(s)),
   checkUpdates: () => ipcRenderer.invoke('update:check'),
   installUpdate: () => ipcRenderer.invoke('update:install'),
+  setAutoInstall: (value) => ipcRenderer.invoke('update:auto', value),
+  getAutoInstall: () => ipcRenderer.invoke('update:autoGet'),
   onGameStatus: (cb) => ipcRenderer.on('game:status', (_e, s) => cb(s)),
   restoreBackup: (gameDir) => ipcRenderer.invoke('backup:restore', gameDir),
   runDiagnostics: (gameDir) => ipcRenderer.invoke('diag:run', gameDir),
