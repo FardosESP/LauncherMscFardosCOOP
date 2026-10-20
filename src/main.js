@@ -603,11 +603,24 @@ function watchGameLog(dir, webContents) {
       send('MSCLoader y el mod cargados correctamente.', 'ok');
     }
     // Mensajes de conexión que escribe el mod (p. ej. «conectado a …», «se ha unido»).
-    const coop = [...text.matchAll(/[MSC Coop] (.+)/g)].pop();
-    if (coop && coop[1].trim() !== lastCoop) {
-      lastCoop = coop[1].trim();
-      const bad = /no se pudo|desconectado del|versión de protocolo|error/i.test(lastCoop);
-      send('Mod: ' + lastCoop, bad ? 'bad' : 'ok');
+    // Solo mensajes conocidos del mod (cortados antes de cualquier resto de log de Unity).
+    // Sin expresiones regulares con barras: se busca la marca y se corta en el primer «(» (resto del log de Unity).
+    const coopMark = '[MSC Coop] ';
+    const knownMsg = /^(escuchando|conectado|desconectado|No se pudo|Versi|.* se ha (unido|desconectado))/;
+    let coop = '';
+    for (const raw of text.split('\n')) {
+      const at = raw.indexOf(coopMark);
+      if (at < 0) continue;
+      let msg = raw.slice(at + coopMark.length).replace('\r', '');
+      const cut = msg.indexOf('(');
+      if (cut >= 0) msg = msg.slice(0, cut);
+      msg = msg.trim();
+      if (knownMsg.test(msg)) coop = msg;
+    }
+    if (coop && coop !== lastCoop) {
+      lastCoop = coop;
+      const bad = /No se pudo|desconectado del|Versi[oó]n/i.test(coop);
+      send('Mod: ' + coop, bad ? 'bad' : 'ok');
     }
     if (!loaded && Date.now() - started > 120000) {
       clearInterval(timer);
