@@ -200,7 +200,7 @@ async function requirementsStatus(gameDirInput) {
   const loaderFiles = [
     [path.join(dir, 'winhttp.dll'), path.join(bundle, 'root', 'winhttp.dll')],
     [path.join(dir, 'doorstop_config.ini'), path.join(bundle, 'root', 'doorstop_config.ini')],
-    ...['MSCLoader.dll', 'MSCLoader.Preloader.dll', 'INIFileParser.dll', 'Ionic.Zip.Reduced.dll']
+    ...['MSCLoader.dll', 'MSCLoader.Preloader.dll', 'INIFileParser.dll', 'Ionic.Zip.Reduced.dll', '0Harmony.dll']
       .map((f) => [path.join(managed, f), path.join(bundle, 'Managed', f)]),
   ];
   const loaderOk = isGameDir(dir) && loaderFiles.every(([a, b]) => same(a, b));
@@ -272,7 +272,7 @@ async function runDiagnostics(gameDirInput) {
   for (const rel of ['winhttp.dll', 'doorstop_config.ini']) {
     line(rel, `${sha256(path.join(dir, rel))} | paquete ${sha256(path.join(bundle, 'root', rel))}`);
   }
-  for (const f of ['MSCLoader.dll', 'MSCLoader.Preloader.dll', 'INIFileParser.dll', 'Ionic.Zip.Reduced.dll']) {
+  for (const f of ['MSCLoader.dll', 'MSCLoader.Preloader.dll', 'INIFileParser.dll', 'Ionic.Zip.Reduced.dll', '0Harmony.dll']) {
     line(f, `${sha256(path.join(managed, f))} | paquete ${sha256(path.join(bundle, 'Managed', f))}`);
   }
   line('winhttp.dll.orig', exists(path.join(dir, 'winhttp.dll.orig')));
@@ -327,6 +327,7 @@ const BACKUP_FILES = [
   path.join(MANAGED_REL, 'MSCLoader.xml'),
   path.join(MANAGED_REL, 'INIFileParser.dll'),
   path.join(MANAGED_REL, 'Ionic.Zip.Reduced.dll'),
+  path.join(MANAGED_REL, '0Harmony.dll'),
   path.join('Mods', 'MscCoop.dll'),
   path.join('Mods', 'Config', 'msc-coop.json'),
 ];
