@@ -23,6 +23,8 @@ contextBridge.exposeInMainWorld('launcher', {
   pickSharedFolder: () => ipcRenderer.invoke('share:pick'),
   setShareLogs: (value) => ipcRenderer.invoke('share:set', value),
   getShareLogs: () => ipcRenderer.invoke('share:get'),
+  onShareState: (cb) => ipcRenderer.on('share:state', (_e, s) => cb(s)),
+  stopShare: () => ipcRenderer.invoke('share:stop'),
   showReport: (p) => ipcRenderer.invoke('diag:show', p),
   openTailscale: () => ipcRenderer.invoke('tailscale:open'),
   openTailscaleKeys: () => ipcRenderer.invoke('tailscale:keys'),

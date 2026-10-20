@@ -386,27 +386,21 @@ $('logsOff').addEventListener('click', async () => {
 });
 $('logsOpen').addEventListener('click', () => window.launcher.openLogsFolder());
 
-// Carpeta compartida: el usuario elige la carpeta y acepta explícitamente.
+// Carpeta compartida: se elige aquí; cada partida pregunta antes de compartir.
 async function renderShare() {
   const s = await window.launcher.getShareLogs();
-  $('shareStatus').textContent = s.enabled && s.folder
-    ? 'Activado: copiando registros a ' + s.folder
-    : (s.folder ? 'Desactivado. Carpeta elegida: ' + s.folder : 'Desactivado. Elige una carpeta primero.');
+  $('shareStatus').textContent = s.folder
+    ? 'Carpeta elegida: ' + s.folder + '. Cada partida preguntará antes de compartir.'
+    : 'Todavía no hay carpeta elegida.';
 }
 $('sharePick').addEventListener('click', async () => {
   await window.launcher.pickSharedFolder();
   renderShare();
 });
-$('shareAccept').addEventListener('click', async () => {
-  const s = await window.launcher.getShareLogs();
-  if (!s.folder) return setStatus('Primero elige una carpeta.', 'bad');
-  if (!window.confirm('Se copiarán los registros de cada partida a: ' + s.folder + '\n\n¿Aceptas?')) return;
-  await window.launcher.setShareLogs(true);
-  renderShare();
-});
-$('shareOff').addEventListener('click', async () => {
-  await window.launcher.setShareLogs(false);
-  renderShare();
+$('shareStop').addEventListener('click', () => window.launcher.stopShare());
+window.launcher.onShareState((st) => {
+  $('shareBar').hidden = !st.active;
+  $('shareStop').textContent = 'Parar envío de registros (' + st.count + ' envíos)';
 });
 renderShare();
 

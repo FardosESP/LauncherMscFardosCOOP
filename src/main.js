@@ -734,7 +734,21 @@ ipcMain.handle('game:launch', async (_e, payload) => {
   // Se borra el log anterior para que la comprobación solo mire esta ejecución.
   fs.rmSync(path.join(gameDir, 'output_log.txt'), { force: true });
   spawn(path.join(gameDir, 'mysummercar.exe'), [], { cwd: gameDir, detached: true, stdio: 'ignore' }).unref();
-  startSessionLogs(gameDir);
+  let shareThisSession = false;
+  if (loadSettings().sharedLogsFolder) {
+    const win = BrowserWindow.fromWebContents(_e.sender);
+    const answer = dialog.showMessageBoxSync(win, {
+      type: 'question',
+      buttons: ['No', 'Sí, compartir'],
+      defaultId: 0,
+      cancelId: 0,
+      title: 'Registros de esta partida',
+      message: '¿Compartir los registros de esta partida mientras juegas?',
+      detail: 'Se copiarán cada 15 segundos a la carpeta: ' + loadSettings().sharedLogsFolder + '\nPuedes pararlo en cualquier momento con el botón «Parar envío».',
+    });
+    shareThisSession = answer === 1;
+  }
+  startSessionLogs(gameDir, shareThisSession, _e.sender);
   watchGameLog(gameDir, _e.sender);
   return { ok: true, config };
 });
@@ -830,21 +844,35 @@ const logsDir = () => path.join(app.getPath('downloads'), 'FardosMSC-Registros')
 
 // Crea la carpeta de esta partida y copia en vivo sus registros (cada 15 s y al cerrar el juego).
 const SESSION_FILES = ['output_log.txt', 'MSCLoader_Preloader.txt'];
-function startSessionLogs(gameDir) {
+let shareState = { active: false, count: 0, sender: null };
+const shareStop = () => { shareState.active = false; };
+function pushShareState() {
+  const w = shareState.sender;
+  if (w && !w.isDestroyed()) w.send('share:state', { active: shareState.active, count: shareState.count });
+}
+ipcMain.handle('share:stop', () => { shareStop(); pushShareState(); return true; });
+
+function startSessionLogs(gameDir, shareThisSession, sender) {
   if (loadSettings().logsConsent !== true) return null;
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const dest = path.join(logsDir(), stamp);
   fs.mkdirSync(dest, { recursive: true });
   const settings = loadSettings();
-  const shared = settings.shareLogs === true && settings.sharedLogsFolder
+  const shared = shareThisSession && settings.sharedLogsFolder
     ? path.join(settings.sharedLogsFolder, stamp) : null;
   if (shared) fs.mkdirSync(shared, { recursive: true });
+  shareState = { active: !!shared, count: 0, sender: sender || null };
+  pushShareState();
   const copyAll = () => {
     for (const f of SESSION_FILES) {
-      for (const target of [dest, shared]) {
-        if (!target) continue;
-        try { fs.copyFileSync(path.join(gameDir, f), path.join(target, f)); } catch { /* aún no existe */ }
+      try { fs.copyFileSync(path.join(gameDir, f), path.join(dest, f)); } catch { /* aún no existe */ }
+      if (shared && shareState.active) {
+        try { fs.copyFileSync(path.join(gameDir, f), path.join(shared, f)); } catch { /* aún no existe */ }
       }
+    }
+    if (shared && shareState.active) {
+      shareState.count++;
+      if (shareState.count % 4 === 1) pushShareState();
     }
   };
   const timer = setInterval(() => {
