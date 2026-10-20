@@ -4,6 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const https = require('https');
 const crypto = require('crypto');
+const saves = require('./saves');
 const { autoUpdater } = require('electron-updater');
 const { execFile, execFileSync, spawn } = require('child_process');
 
@@ -549,8 +550,12 @@ ipcMain.handle('firewall:open', (_e, port) => {
   const p = Number(port);
   if (!Number.isInteger(p) || p < 1 || p > 65535) return { ok: false, error: 'Puerto no válido.' };
   const name = firewallRuleName(p);
+  const saveName = firewallRuleName(p + 1);
+  // Dos reglas: la de partida y la de compartir la partida guardada (puerto + 1).
   const script = `netsh advfirewall firewall delete rule name='${name}' | Out-Null; ` +
-    `netsh advfirewall firewall add rule name='${name}' dir=in action=allow protocol=TCP localport=${p}`;
+    `netsh advfirewall firewall add rule name='${name}' dir=in action=allow protocol=TCP localport=${p}; ` +
+    `netsh advfirewall firewall delete rule name='${saveName}' | Out-Null; ` +
+    `netsh advfirewall firewall add rule name='${saveName}' dir=in action=allow protocol=TCP localport=${p + 1}`;
   return new Promise((resolve) => {
     execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
       `Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile','-Command',"${script.replace(/"/g, '\\"')}"`],
@@ -671,7 +676,16 @@ function watchGameLog(dir, webContents) {
   }, 2000);
 }
 
-ipcMain.handle('game:launch', (_e, payload) => {
+// Partida compartida: la carpeta de partidas de My Summer Car y las copias de seguridad del launcher.
+const MSC_SAVE_DIR = path.join(os.homedir(), 'AppData', 'LocalLow', 'Amistech', 'My Summer Car');
+const savesBackupDir = () => path.join(app.getPath('userData'), 'partidas-anteriores');
+let saveServer = null;
+// El anfitrión sirve su partida en el puerto de partida + 1, solo por la IP de Tailscale si la hay.
+function ensureSaveServer(ip, savePort) {
+  if (!saveServer) saveServer = saves.startSaveServer(MSC_SAVE_DIR, savePort, ip || '0.0.0.0');
+}
+
+ipcMain.handle('game:launch', async (_e, payload) => {
   const { gameDir, mode, address, port, playerName, tailscaleIp: ip } = payload;
   if (!isGameDir(gameDir)) return { ok: false, error: 'Elige primero la carpeta del juego.' };
   if (gameRunning()) return { ok: false, error: 'El juego ya está abierto. Vuelve a la ventana del juego.' };
@@ -679,6 +693,19 @@ ipcMain.handle('game:launch', (_e, payload) => {
   const repair = installLoaderFiles(gameDir);
   if (!repair.ok) return repair;
   if (mode === 'client' && !address) return { ok: false, error: 'Escribe la IP de tu amigo.' };
+
+  const savePort = (Number(port) || DEFAULT_PORT) + 1;
+  if (mode === 'client') {
+    // Copia la partida del anfitrión antes de entrar, sin preguntar. La local se guarda como copia de seguridad.
+    try {
+      const sync = await saves.syncFromHost(`http://${address.trim()}:${savePort}`, MSC_SAVE_DIR, savesBackupDir());
+      if (!sync.synced) return { ok: false, error: sync.reason };
+    } catch (e) {
+      return { ok: false, error: `No se pudo copiar la partida del anfitrión (${e.message}). ¿Está abierto el juego del anfitrión con su launcher?` };
+    }
+  } else {
+    ensureSaveServer(ip, savePort);
+  }
 
   const config = {
     Mode: mode,
