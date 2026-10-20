@@ -606,7 +606,12 @@ function setupAutoUpdate(win) {
     phase: 'ready', version: info.version, notes: releaseNotesText(info.releaseNotes),
   }));
   autoUpdater.on('error', () => sendUpdate({ phase: 'error' }));
-  autoUpdater.checkForUpdates().catch(() => sendUpdate({ phase: 'error' }));
+
+  // Comprueba al arrancar, cada 15 minutos y al volver a la ventana, para pillar versiones nuevas con la app abierta.
+  const check = () => autoUpdater.checkForUpdates().catch(() => sendUpdate({ phase: 'error' }));
+  check();
+  setInterval(check, 15 * 60 * 1000);
+  win.on('focus', check);
 }
 
 ipcMain.handle('update:check', () => autoUpdater.checkForUpdates().then(() => true).catch(() => false));
