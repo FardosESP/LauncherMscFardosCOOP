@@ -732,9 +732,9 @@ ipcMain.handle('game:launch', async (_e, payload) => {
 
   saveSettings({ gameDir, mode, address: address || '', port: config.Port, playerName: config.PlayerName });
   // Se borra el log anterior para que la comprobación solo mire esta ejecución.
-  saveSessionLogs(gameDir);
   fs.rmSync(path.join(gameDir, 'output_log.txt'), { force: true });
   spawn(path.join(gameDir, 'mysummercar.exe'), [], { cwd: gameDir, detached: true, stdio: 'ignore' }).unref();
+  startSessionLogs(gameDir);
   watchGameLog(gameDir, _e.sender);
   return { ok: true, config };
 });
@@ -806,18 +806,30 @@ ipcMain.handle('update:install', () => autoUpdater.quitAndInstall(false, true));
 const LOGS_TO_KEEP = 10;
 const logsDir = () => path.join(app.getPath('downloads'), 'FardosMSC-Registros');
 
-function saveSessionLogs(gameDir) {
-  if (loadSettings().logsConsent !== true) return;
-  const src = ['output_log.txt', 'MSCLoader_Preloader.txt'].filter((f) => fs.existsSync(path.join(gameDir, f)));
-  if (!src.length) return;
+// Crea la carpeta de esta partida y copia en vivo sus registros (cada 15 s y al cerrar el juego).
+const SESSION_FILES = ['output_log.txt', 'MSCLoader_Preloader.txt'];
+function startSessionLogs(gameDir) {
+  if (loadSettings().logsConsent !== true) return null;
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const dest = path.join(logsDir(), stamp);
   fs.mkdirSync(dest, { recursive: true });
-  for (const f of src) fs.copyFileSync(path.join(gameDir, f), path.join(dest, f));
-  const sessions = fs.readdirSync(logsDir()).sort();
-  for (const old of sessions.slice(0, Math.max(0, sessions.length - LOGS_TO_KEEP))) {
-    fs.rmSync(path.join(logsDir(), old), { recursive: true, force: true });
-  }
+  const copyAll = () => {
+    for (const f of SESSION_FILES) {
+      try { fs.copyFileSync(path.join(gameDir, f), path.join(dest, f)); } catch { /* aún no existe */ }
+    }
+  };
+  const timer = setInterval(() => {
+    copyAll();
+    if (!gameRunning()) {
+      clearInterval(timer);
+      copyAll();
+      const sessions = fs.readdirSync(logsDir()).sort();
+      for (const old of sessions.slice(0, Math.max(0, sessions.length - LOGS_TO_KEEP))) {
+        fs.rmSync(path.join(logsDir(), old), { recursive: true, force: true });
+      }
+    }
+  }, 15000);
+  return dest;
 }
 
 ipcMain.handle('logs:consent', (_e, value) => {
