@@ -581,10 +581,12 @@ ipcMain.handle('clipboard:write', (_e, text) => {
   return true;
 });
 
-// Vigila output_log.txt tras lanzar el juego y avisa si MSCLoader o el mod fallan.
+// Vigila output_log.txt tras lanzar el juego: avisa si MSCLoader o el mod fallan y muestra el estado de la conexión del mod.
 function watchGameLog(dir, webContents) {
   const log = path.join(dir, 'output_log.txt');
   const started = Date.now();
+  let loaded = false;
+  let lastCoop = '';
   const send = (text, kind) => {
     if (!webContents.isDestroyed()) webContents.send('game:status', { text, kind });
   };
@@ -594,16 +596,24 @@ function watchGameLog(dir, webContents) {
     try { text = fs.readFileSync(log, 'utf8'); } catch { /* aún no existe */ }
     if (/crashed during load|Could not load type|Mod .* has thrown an error/.test(text)) {
       clearInterval(timer);
-      return send('El mod ha fallado al cargar. Pulsa «Reparar MSCLoader» y, si sigue, pásanos output_log.txt.', 'bad');
+      return send('El mod ha fallado al cargar. Pulsa «Reparar MSCLoader» y, si sigue, pásanos el diagnóstico.', 'bad');
     }
-    if (/Loaded [1-9]\d* mods?/.test(text)) {
-      clearInterval(timer);
-      return send('MSCLoader y el mod cargados correctamente.', 'ok');
+    if (!loaded && /Loaded [1-9]d* mods?/.test(text)) {
+      loaded = true;
+      send('MSCLoader y el mod cargados correctamente.', 'ok');
     }
-    if (Date.now() - started > 120000) {
+    // Mensajes de conexión que escribe el mod (p. ej. «conectado a …», «se ha unido»).
+    const coop = [...text.matchAll(/[MSC Coop] (.+)/g)].pop();
+    if (coop && coop[1].trim() !== lastCoop) {
+      lastCoop = coop[1].trim();
+      const bad = /no se pudo|desconectado del|versión de protocolo|error/i.test(lastCoop);
+      send('Mod: ' + lastCoop, bad ? 'bad' : 'ok');
+    }
+    if (!loaded && Date.now() - started > 120000) {
       clearInterval(timer);
       send('MSCLoader no se ha cargado. Pulsa «Reparar MSCLoader» y vuelve a intentarlo.', 'bad');
     }
+    if (loaded && Date.now() - started > 600000) clearInterval(timer);
   }, 2000);
 }
 

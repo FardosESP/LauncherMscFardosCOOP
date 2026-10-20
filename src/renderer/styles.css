@@ -131,6 +131,12 @@ input[type="text"], input[type="number"] {
   user-select: text;
 }
 input:focus { border-bottom: 2px solid var(--accent); }
+
+select {
+  width: 100%; height: 32px; padding: 0 10px;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius);
+  color: var(--text); font: inherit; outline: none;
+}
 input::placeholder { color: var(--muted); }
 
 button {

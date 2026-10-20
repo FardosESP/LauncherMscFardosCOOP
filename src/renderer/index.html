@@ -70,7 +70,11 @@
           </div>
 
           <div id="joinPanel" class="panel" hidden>
-            <p class="muted">Pide a tu amigo su IP de Tailscale y el puerto del juego.</p>
+            <p class="muted">Elige a tu amigo de la lista (si está en línea en Tailscale) o escribe su IP.</p>
+            <div class="field">
+              <label class="field-label" for="peerSelect">Amigos en línea</label>
+              <select id="peerSelect"><option value="">— elige un amigo —</option></select>
+            </div>
             <div class="grid-2">
               <div>
                 <label class="field-label" for="address">IP del anfitrión</label>

@@ -144,9 +144,25 @@ async function play() {
     tailscaleIp: state.tailscaleIp,
   };
   if (payload.mode === 'client' && !payload.address) {
-    setStatus('Escribe la IP de tu amigo.', 'bad');
+    setStatus('Elige a tu amigo de la lista o escribe su IP.', 'bad');
     ui.address.focus();
     return;
+  }
+  // Comprobaciones antes de unirse: Tailscale conectado y el anfitrión respondiendo.
+  if (payload.mode === 'client') {
+    if (!state.tailscaleIp) {
+      setStatus('Para unirte necesitas Tailscale conectado. Ve a Estado y pega tu clave de invitación.', 'bad');
+      return;
+    }
+    setStatus('Comprobando que el anfitrión responde…');
+    const ping = await window.launcher.tailscalePing(payload.address);
+    if (!ping.ok) {
+      const go = window.confirm(`${ping.detail}\n\n¿Jugar igualmente? (Si tu amigo aún no ha creado la partida, no podrás entrar.)`);
+      if (!go) {
+        setStatus('Cancelado. Pide a tu amigo que cree la partida y vuelve a probar.', 'bad');
+        return;
+      }
+    }
   }
   const res = await window.launcher.launch(payload);
   if (!res.ok) {
@@ -188,6 +204,28 @@ ui.tsConnect.addEventListener('click', async () => {
 });
 ui.tsKeysLink.addEventListener('click', () => window.launcher.openTailscaleKeys());
 
+// Rellena el desplegable de amigos en línea. Elegir uno pone su IP en el campo de dirección.
+function fillPeerSelect(online) {
+  const sel = $('peerSelect');
+  const current = ui.address.value.trim();
+  sel.innerHTML = '';
+  const empty = document.createElement('option');
+  empty.value = '';
+  empty.textContent = online.length ? '— elige un amigo —' : 'Nadie en línea ahora';
+  sel.appendChild(empty);
+  for (const p of online) {
+    if (!p.ip) continue;
+    const opt = document.createElement('option');
+    opt.value = p.ip;
+    opt.textContent = `${p.name} (${p.ip})`;
+    if (p.ip === current) opt.selected = true;
+    sel.appendChild(opt);
+  }
+}
+$('peerSelect').addEventListener('change', (e) => {
+  if (e.target.value) ui.address.value = e.target.value;
+});
+
 // Estado de Tailscale: conectado o no, tu IP, la red y los compañeros en línea.
 async function refreshTailscaleStatus() {
   const s = await window.launcher.tailscaleStatus();
@@ -208,6 +246,7 @@ async function refreshTailscaleStatus() {
   chip(state, true, 'Conectado', '');
   const online = s.peers.filter((p) => p.online);
   info.textContent = `Tu IP: ${s.ip || '—'} · Red: ${s.tailnet || '—'} · En línea: ${online.length}`;
+  fillPeerSelect(online);
   for (const p of online.slice(0, 10)) {
     const li = document.createElement('li');
     li.innerHTML = '';
