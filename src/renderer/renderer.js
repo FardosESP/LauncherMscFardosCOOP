@@ -272,8 +272,20 @@ $('tsPing').addEventListener('click', async () => {
 });
 
 // Lista de requisitos con botón para arreglar cada uno cuando se puede.
+let autoRepairFor = '';
 async function refreshRequirements() {
-  const items = await window.launcher.checkRequirements(ui.gameDir.value.trim());
+  const dir = ui.gameDir.value.trim();
+  const items = await window.launcher.checkRequirements(dir);
+  // Reparación automática: si MSCLoader, el mod o las librerías no están bien, se arreglan solos (una vez por carpeta).
+  const broken = items.some((i) => ['loader', 'mod', 'framework'].includes(i.id) && !i.ok && i.fix === 'loader');
+  if (broken && dir && autoRepairFor !== dir) {
+    autoRepairFor = dir;
+    setStatus('Actualizando MSCLoader y el mod automáticamente…');
+    const res = await window.launcher.installLoader(dir);
+    if (res.ok) await refresh(dir);
+    else setStatus(res.error, 'bad');
+    return;
+  }
   const list = $('reqList');
   list.innerHTML = '';
   const missing = items.filter((i) => i.needed && !i.ok);

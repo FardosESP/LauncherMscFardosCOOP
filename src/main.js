@@ -431,8 +431,9 @@ ipcMain.handle('backup:restore', (_e, gameDir) => {
   }
 });
 
-ipcMain.handle('loader:install', (_e, gameDir) => {
-  const dir = gameDir || loadSettings().gameDir;
+// Instala o repara MSCLoader y el mod desde el paquete del launcher. Es seguro llamarla varias veces:
+// solo copia lo que falta o no coincide, y guarda copia de seguridad antes de tocar nada.
+function installLoaderFiles(dir) {
   if (!isGameDir(dir)) return { ok: false, error: 'Elige primero la carpeta del juego.' };
   const bundle = path.join(toolsDir(), 'msc-loader');
   if (!fs.existsSync(bundle)) return { ok: false, error: 'Falta el paquete de MSCLoader dentro del launcher.' };
@@ -455,7 +456,9 @@ ipcMain.handle('loader:install', (_e, gameDir) => {
     return { ok: false, error: `No se pudo instalar MSCLoader: ${e.message}` };
   }
   return { ok: true };
-});
+}
+
+ipcMain.handle('loader:install', (_e, gameDir) => installLoaderFiles(gameDir || loadSettings().gameDir));
 
 ipcMain.handle('tailscale:open', () => shell.openExternal(TAILSCALE_URL));
 ipcMain.handle('tailscale:keys', () => shell.openExternal(TAILSCALE_KEYS_URL));
@@ -657,7 +660,9 @@ function watchGameLog(dir, webContents) {
 ipcMain.handle('game:launch', (_e, payload) => {
   const { gameDir, mode, address, port, playerName, tailscaleIp: ip } = payload;
   if (!isGameDir(gameDir)) return { ok: false, error: 'Elige primero la carpeta del juego.' };
-  if (!loaderInstalled(gameDir)) return { ok: false, error: 'MSCLoader no está instalado.' };
+  // Antes de jugar se comprueba y repara MSCLoader y el mod automáticamente.
+  const repair = installLoaderFiles(gameDir);
+  if (!repair.ok) return repair;
   if (mode === 'client' && !address) return { ok: false, error: 'Escribe la IP de tu amigo.' };
 
   const config = {
