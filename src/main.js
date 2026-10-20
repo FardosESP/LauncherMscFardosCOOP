@@ -801,7 +801,31 @@ ipcMain.handle('update:check', () => autoUpdater.checkForUpdates().then(() => tr
 // Cierra el launcher y arranca la nueva versión.
 ipcMain.handle('update:install', () => autoUpdater.quitAndInstall(false, true));
 
+// Limpieza automática: se conservan los últimos informes de diagnóstico y se recorta el registro de actualizaciones.
+const REPORTS_TO_KEEP = 10;
+const UPDATER_LOG_MAX_BYTES = 512 * 1024;
+function pruneLauncherFiles() {
+  const dir = app.getPath('userData');
+  try {
+    const reports = fs.readdirSync(dir)
+      .filter((f) => /^diagnostico-.*\.txt$/.test(f))
+      .sort();
+    for (const old of reports.slice(0, Math.max(0, reports.length - REPORTS_TO_KEEP))) {
+      fs.rmSync(path.join(dir, old), { force: true });
+    }
+  } catch { /* sin carpeta todavía */ }
+  try {
+    const log = path.join(dir, 'updater.log');
+    const size = fs.statSync(log).size;
+    if (size > UPDATER_LOG_MAX_BYTES) {
+      const lines = fs.readFileSync(log, 'utf8').split('\n');
+      fs.writeFileSync(log, lines.slice(-2000).join('\n'));
+    }
+  } catch { /* sin registro todavía */ }
+}
+
 app.whenReady().then(() => {
+  pruneLauncherFiles();
   createWindow();
   setupAutoUpdate(BrowserWindow.getAllWindows()[0]);
   app.on('activate', () => {
