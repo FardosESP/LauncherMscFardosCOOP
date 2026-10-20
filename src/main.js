@@ -203,7 +203,9 @@ async function requirementsStatus(gameDirInput) {
     ...['MSCLoader.dll', 'MSCLoader.Preloader.dll', 'INIFileParser.dll', 'Ionic.Zip.Reduced.dll', '0Harmony.dll']
       .map((f) => [path.join(managed, f), path.join(bundle, 'Managed', f)]),
   ];
-  const loaderOk = isGameDir(dir) && loaderFiles.every(([a, b]) => same(a, b));
+  const assetFiles = ['MSCLoader_Console/console.unity3d', 'MSCLoader_Settings/settingsui.unity3d']
+    .map((f) => [path.join(dir, 'Mods', 'Assets', f), path.join(bundle, 'root', 'Mods', 'Assets', f)]);
+  const loaderOk = isGameDir(dir) && [...loaderFiles, ...assetFiles].every(([a, b]) => same(a, b));
   const modOk = same(path.join(dir, 'Mods', 'MscCoop.dll'), path.join(toolsDir(), 'MscCoop.dll'));
   const ts = await tailscaleStatus();
   const major = parseInt(os.release().split('.')[0], 10);
@@ -328,6 +330,8 @@ const BACKUP_FILES = [
   path.join(MANAGED_REL, 'INIFileParser.dll'),
   path.join(MANAGED_REL, 'Ionic.Zip.Reduced.dll'),
   path.join(MANAGED_REL, '0Harmony.dll'),
+  path.join('Mods', 'Assets', 'MSCLoader_Console', 'console.unity3d'),
+  path.join('Mods', 'Assets', 'MSCLoader_Settings', 'settingsui.unity3d'),
   path.join('Mods', 'MscCoop.dll'),
   path.join('Mods', 'Config', 'msc-coop.json'),
 ];
