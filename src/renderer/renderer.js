@@ -493,7 +493,18 @@ ui.copyIp.addEventListener('click', async () => {
 });
 ui.modeHost.addEventListener('change', render);
 ui.modeJoin.addEventListener('change', render);
-ui.play.addEventListener('click', play);
+let launching = false;
+ui.play.addEventListener('click', async () => {
+  if (launching) return;
+  launching = true;
+  ui.play.disabled = true;
+  try {
+    await play();
+  } finally {
+    launching = false;
+    ui.play.disabled = false;
+  }
+});
 ui.gameDir.addEventListener('change', () => refresh(ui.gameDir.value.trim()));
 
 // Aviso de actualización: versión nueva, cambios y botón para instalarla.

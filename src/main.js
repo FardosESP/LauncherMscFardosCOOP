@@ -644,7 +644,7 @@ function watchGameLog(dir, webContents) {
       clearInterval(timer);
       return send('El mod ha fallado al cargar. Pulsa «Reparar MSCLoader» y, si sigue, pásanos el diagnóstico.', 'bad');
     }
-    if (!loaded && /Loaded [1-9]d* mods?/.test(text)) {
+    if (!loaded && /Loaded [1-9]\d* mods?/.test(text)) {
       loaded = true;
       send('MSCLoader y el mod cargados correctamente.', 'ok');
     }
@@ -737,7 +737,7 @@ ipcMain.handle('game:launch', async (_e, payload) => {
   let shareThisSession = false;
   if (loadSettings().sharedLogsFolder) {
     const win = BrowserWindow.fromWebContents(_e.sender);
-    const answer = dialog.showMessageBoxSync(win, {
+    const { response } = await dialog.showMessageBox(win, {
       type: 'question',
       buttons: ['No', 'Sí, compartir'],
       defaultId: 0,
@@ -746,7 +746,7 @@ ipcMain.handle('game:launch', async (_e, payload) => {
       message: '¿Compartir los registros de esta partida mientras juegas?',
       detail: 'Se copiarán cada 15 segundos a la carpeta: ' + loadSettings().sharedLogsFolder + '\nPuedes pararlo en cualquier momento con el botón «Parar envío».',
     });
-    shareThisSession = answer === 1;
+    shareThisSession = response === 1;
   }
   startSessionLogs(gameDir, shareThisSession, _e.sender);
   watchGameLog(gameDir, _e.sender);
@@ -856,7 +856,7 @@ function startSessionLogs(gameDir, shareThisSession, sender) {
   if (loadSettings().logsConsent !== true) return null;
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const dest = path.join(logsDir(), stamp);
-  fs.mkdirSync(dest, { recursive: true });
+  try { fs.mkdirSync(dest, { recursive: true }); } catch { return null; }
   const settings = loadSettings();
   const shared = shareThisSession && settings.sharedLogsFolder
     ? path.join(settings.sharedLogsFolder, stamp) : null;
@@ -885,10 +885,12 @@ function startSessionLogs(gameDir, shareThisSession, sender) {
       // El juego se cerró: el envío termina y la pantalla lo sabe (se oculta el botón de parar).
       shareState.active = false;
       pushShareState();
-      const sessions = fs.readdirSync(logsDir()).sort();
-      for (const old of sessions.slice(0, Math.max(0, sessions.length - LOGS_TO_KEEP))) {
-        fs.rmSync(path.join(logsDir(), old), { recursive: true, force: true });
-      }
+      try {
+        const sessions = fs.readdirSync(logsDir()).sort();
+        for (const old of sessions.slice(0, Math.max(0, sessions.length - LOGS_TO_KEEP))) {
+          fs.rmSync(path.join(logsDir(), old), { recursive: true, force: true });
+        }
+      } catch { /* limpieza best-effort */ }
     }
   }, 15000);
   return dest;
