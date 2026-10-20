@@ -43,8 +43,7 @@ html, body {
   user-select: none;
 }
 
-body { display: flex; flex-direction: column; }
-.app { display: grid; grid-template-columns: 200px 1fr; flex: 1; min-height: 0; }
+.app { display: grid; grid-template-columns: 200px 1fr; height: 100vh; }
 
 /* Barra lateral */
 .sidebar {
@@ -231,14 +230,16 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); }
 
 /* Aviso de actualización */
 .update-banner {
-  display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  padding: 10px 16px; background: var(--surface-2); border-bottom: 1px solid var(--accent);
-  font-size: 13px;
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+  padding: 12px 16px; background: var(--surface); border-bottom: 2px solid var(--accent);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  font-size: 13px; max-height: 45vh; overflow: auto;
 }
 .update-banner[hidden] { display: none; }
 .update-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .update-actions { display: flex; gap: 8px; flex-shrink: 0; }
-#updateNotes { white-space: pre-line; overflow: hidden; text-overflow: ellipsis; max-height: 3.6em; }
+#updateNotes { white-space: pre-line; overflow-wrap: anywhere; line-height: 1.45; color: var(--text); }
 
 /* Pantallas pequeñas */
 @media (max-height: 760px) {
