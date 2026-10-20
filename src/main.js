@@ -762,14 +762,14 @@ const releaseNotesText = (notes) => {
 };
 
 // Instala la actualización sola: reinicia el launcher en cuanto el juego esté cerrado (no corta una partida en curso).
+// El juego se abre aparte del launcher, así que reiniciar el launcher no lo cierra: no hace falta esperar.
+// Se da unos segundos para que el aviso se vea.
 function installWhenIdle(version) {
-  updaterLog(`instalación automática de ${version} programada`);
-  const timer = setInterval(() => {
-    if (gameRunning()) return;
-    clearInterval(timer);
+  updaterLog(`instalación automática de ${version} en 10 s`);
+  setTimeout(() => {
     updaterLog(`reiniciando para instalar ${version}`);
     autoUpdater.quitAndInstall(false, true);
-  }, 15000);
+  }, 10000);
 }
 
 let updateWindow = null;
