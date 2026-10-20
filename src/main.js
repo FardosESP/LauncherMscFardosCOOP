@@ -197,15 +197,24 @@ async function requirementsStatus(gameDirInput) {
   const bundle = path.join(toolsDir(), 'msc-loader');
   const managed = path.join(dir, 'mysummercar_Data', 'Managed');
   const same = (a, b) => sha256(a) !== 'NO EXISTE' && sha256(a) === sha256(b);
-  const loaderFiles = [
-    [path.join(dir, 'winhttp.dll'), path.join(bundle, 'root', 'winhttp.dll')],
-    [path.join(dir, 'doorstop_config.ini'), path.join(bundle, 'root', 'doorstop_config.ini')],
-    ...['MSCLoader.dll', 'MSCLoader.Preloader.dll', 'INIFileParser.dll', 'Ionic.Zip.Reduced.dll', '0Harmony.dll', 'Newtonsoft.Json.dll', 'NAudio.dll', 'NVorbis.dll', 'NAudio.Flac.dll', 'System.Runtime.Serialization.dll']
-      .map((f) => [path.join(managed, f), path.join(bundle, 'Managed', f)]),
+  // Todos los archivos del paquete (raíz y Managed) deben estar en el juego y ser idénticos.
+  const listFiles = (root) => {
+    const out = [];
+    const walk = (d, rel) => {
+      for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+        const r = rel ? path.join(rel, e.name) : e.name;
+        if (e.isDirectory()) walk(path.join(d, e.name), r);
+        else out.push(r);
+      }
+    };
+    walk(root, "");
+    return out;
+  };
+  const bundleFiles = [
+    ...listFiles(path.join(bundle, "root")).map((rel) => [path.join(dir, rel), path.join(bundle, "root", rel)]),
+    ...listFiles(path.join(bundle, "Managed")).map((rel) => [path.join(managed, rel), path.join(bundle, "Managed", rel)]),
   ];
-  const assetFiles = ['MSCLoader_Console/console.unity3d', 'MSCLoader_Settings/settingsui.unity3d']
-    .map((f) => [path.join(dir, 'Mods', 'Assets', f), path.join(bundle, 'root', 'Mods', 'Assets', f)]);
-  const loaderOk = isGameDir(dir) && [...loaderFiles, ...assetFiles].every(([a, b]) => same(a, b));
+  const loaderOk = isGameDir(dir) && bundleFiles.every(([a, b]) => same(a, b));
   const modOk = same(path.join(dir, 'Mods', 'MscCoop.dll'), path.join(toolsDir(), 'MscCoop.dll'));
   const ts = await tailscaleStatus();
   const major = parseInt(os.release().split('.')[0], 10);
