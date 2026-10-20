@@ -240,6 +240,10 @@ async function refreshRequirements() {
   $('reqSummary').textContent = missing.length
     ? `Faltan ${missing.length} requisito(s) para jugar: ${missing.map((i) => i.label).join(', ')}.`
     : 'Todo lo necesario para jugar está listo.';
+  // Botón de arreglo en la vista de Jugar para el primer requisito que falte.
+  const first = missing.find((i) => i.fix);
+  if (first) showPlayFix(FIX_LABELS[first.fix] || 'Arreglar', first.fix);
+  else hidePlayFix();
   for (const it of items) {
     const li = document.createElement('li');
     const info = document.createElement('div');
@@ -264,6 +268,26 @@ async function refreshRequirements() {
     list.appendChild(li);
   }
 }
+
+const FIX_LABELS = {
+  choose: 'Elegir carpeta del juego',
+  loader: 'Instalar o reparar MSCLoader',
+  tailscale: 'Instalar Tailscale',
+  tskey: 'Conectar Tailscale',
+  firewall: 'Abrir puerto en el firewall',
+};
+let playFixKind = '';
+function showPlayFix(label, kind) {
+  playFixKind = kind;
+  const btn = $('playFix');
+  btn.textContent = label;
+  btn.hidden = false;
+}
+function hidePlayFix() {
+  playFixKind = '';
+  $('playFix').hidden = true;
+}
+$('playFix').addEventListener('click', () => fixRequirement(playFixKind));
 
 // Acción de cada requisito: lleva a la acción correspondiente.
 async function fixRequirement(kind) {
@@ -385,7 +409,12 @@ updateLater.addEventListener('click', () => {
   banner.hidden = true;
 });
 if (window.launcher.onGameStatus) {
-  window.launcher.onGameStatus(({ text, kind }) => setStatus(text, kind));
+  window.launcher.onGameStatus(({ text, kind }) => {
+    setStatus(text, kind);
+    // Si el mod o MSCLoader fallan al arrancar, ofrecemos reparar sin tener que buscarlo.
+    if (kind === 'bad' && /MSCLoader|mod/.test(text)) showPlayFix(FIX_LABELS.loader, 'loader');
+    if (kind === 'ok') hidePlayFix();
+  });
 }
 
 refresh();
