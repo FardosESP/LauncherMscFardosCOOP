@@ -592,23 +592,46 @@ function sendUpdate(state) {
   if (updateWindow && !updateWindow.isDestroyed()) updateWindow.webContents.send('update:state', state);
 }
 
+// Registro de actualizaciones: sirve para saber por qué no se aplicó una versión.
+function updaterLog(text) {
+  try {
+    const file = path.join(app.getPath('userData'), 'updater.log');
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.appendFileSync(file, `${new Date().toISOString()} ${text}\n`);
+  } catch { /* el registro no debe romper el launcher */ }
+}
+
 function setupAutoUpdate(win) {
   if (!app.isPackaged) return;
   updateWindow = win;
+  let pendingVersion = '';
+  let pendingNotes = '';
   autoUpdater.autoDownload = true;
+  // Si el usuario no pulsa «Instalar ahora», se aplica al cerrar el launcher.
   autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.logger = { info: (m) => updaterLog(`info ${m}`), warn: (m) => updaterLog(`warn ${m}`), error: (m) => updaterLog(`error ${m}`), debug: () => {} };
   autoUpdater.on('checking-for-update', () => sendUpdate({ phase: 'checking' }));
-  autoUpdater.on('update-available', (info) => sendUpdate({
-    phase: 'downloading', version: info.version, notes: releaseNotesText(info.releaseNotes),
+  autoUpdater.on('update-available', (info) => {
+    pendingVersion = info.version;
+    pendingNotes = releaseNotesText(info.releaseNotes);
+    updaterLog(`disponible ${info.version}`);
+    sendUpdate({ phase: 'downloading', version: pendingVersion, notes: pendingNotes, percent: 0 });
+  });
+  autoUpdater.on('download-progress', (p) => sendUpdate({
+    phase: 'downloading', version: pendingVersion, notes: pendingNotes, percent: Math.round(p.percent),
   }));
   autoUpdater.on('update-not-available', () => sendUpdate({ phase: 'none' }));
-  autoUpdater.on('update-downloaded', (info) => sendUpdate({
-    phase: 'ready', version: info.version, notes: releaseNotesText(info.releaseNotes),
-  }));
-  autoUpdater.on('error', () => sendUpdate({ phase: 'error' }));
+  autoUpdater.on('update-downloaded', (info) => {
+    updaterLog(`descargada ${info.version}`);
+    sendUpdate({ phase: 'ready', version: info.version, notes: releaseNotesText(info.releaseNotes) });
+  });
+  autoUpdater.on('error', (err) => {
+    updaterLog(`error ${err && err.message ? err.message : err}`);
+    sendUpdate({ phase: 'error' });
+  });
 
   // Comprueba al arrancar, cada 15 minutos y al volver a la ventana, para pillar versiones nuevas con la app abierta.
-  const check = () => autoUpdater.checkForUpdates().catch(() => sendUpdate({ phase: 'error' }));
+  const check = () => autoUpdater.checkForUpdates().catch((e) => updaterLog(`check ${e.message}`));
   check();
   setInterval(check, 15 * 60 * 1000);
   win.on('focus', check);

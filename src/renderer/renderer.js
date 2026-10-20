@@ -315,18 +315,28 @@ const banner = $('updateBanner');
 const updateTitle = $('updateTitle');
 const updateNotes = $('updateNotes');
 const updateInstall = $('updateInstall');
+const updateLater = $('updateLater');
+let dismissedVersion = '';
 window.launcher.onUpdateState((s) => {
-  banner.hidden = s.phase !== 'downloading' && s.phase !== 'ready';
+  const show = (s.phase === 'downloading' || s.phase === 'ready') && s.version !== dismissedVersion;
+  banner.hidden = !show;
   updateInstall.hidden = s.phase !== 'ready';
+  updateLater.hidden = s.phase !== 'ready';
   if (s.phase === 'downloading') {
-    updateTitle.textContent = `Nueva actualización ${s.version}: descargando…`;
+    const pct = typeof s.percent === 'number' ? ` ${s.percent}%` : '';
+    updateTitle.textContent = `Nueva actualización ${s.version}: descargando…${pct}`;
     updateNotes.textContent = s.notes || '';
   } else if (s.phase === 'ready') {
-    updateTitle.textContent = `Nueva actualización ${s.version} lista para instalar`;
-    updateNotes.textContent = s.notes || 'Pulsa «Instalar ahora» para reiniciar el launcher con la nueva versión.';
+    updateTitle.textContent = `Nueva actualización ${s.version} lista`;
+    updateNotes.textContent = s.notes || 'Se instalará al cerrar el launcher, o ahora si pulsas «Instalar ahora».';
   }
 });
 updateInstall.addEventListener('click', () => window.launcher.installUpdate());
+// «Más tarde» oculta el aviso de esta versión; la actualización sigue aplicándose al cerrar.
+updateLater.addEventListener('click', () => {
+  dismissedVersion = updateTitle.textContent.match(/\d+\.\d+\.\d+/)?.[0] || '';
+  banner.hidden = true;
+});
 if (window.launcher.onGameStatus) {
   window.launcher.onGameStatus(({ text, kind }) => setStatus(text, kind));
 }
