@@ -32,7 +32,7 @@ function loadSettings() {
 
 function saveSettings(s) {
   fs.mkdirSync(path.dirname(settingsPath()), { recursive: true });
-  fs.writeFileSync(settingsPath(), JSON.stringify(s, null, 2));
+  fs.writeFileSync(settingsPath(), JSON.stringify({ ...loadSettings(), ...s }, null, 2));
 }
 
 const isGameDir = (dir) => !!dir && fs.existsSync(path.join(dir, 'mysummercar.exe'));
@@ -672,7 +672,7 @@ function watchGameLog(dir, webContents) {
       clearInterval(timer);
       send('MSCLoader no se ha cargado. Pulsa «Reparar MSCLoader» y vuelve a intentarlo.', 'bad');
     }
-    if (loaded && Date.now() - started > 600000) clearInterval(timer);
+    if (!gameRunning()) clearInterval(timer);
   }, 2000);
 }
 
@@ -732,6 +732,7 @@ ipcMain.handle('game:launch', async (_e, payload) => {
 
   saveSettings({ gameDir, mode, address: address || '', port: config.Port, playerName: config.PlayerName });
   // Se borra el log anterior para que la comprobación solo mire esta ejecución.
+  saveSessionLogs(gameDir);
   fs.rmSync(path.join(gameDir, 'output_log.txt'), { force: true });
   spawn(path.join(gameDir, 'mysummercar.exe'), [], { cwd: gameDir, detached: true, stdio: 'ignore' }).unref();
   watchGameLog(gameDir, _e.sender);
@@ -800,6 +801,33 @@ function setupAutoUpdate(win) {
 ipcMain.handle('update:check', () => autoUpdater.checkForUpdates().then(() => true).catch(() => false));
 // Cierra el launcher y arranca la nueva versión.
 ipcMain.handle('update:install', () => autoUpdater.quitAndInstall(false, true));
+
+// ---------- Registros de partida (solo si el usuario lo acepta) ----------
+const LOGS_TO_KEEP = 10;
+const logsDir = () => path.join(app.getPath('downloads'), 'FardosMSC-Registros');
+
+function saveSessionLogs(gameDir) {
+  if (loadSettings().logsConsent !== true) return;
+  const src = ['output_log.txt', 'MSCLoader_Preloader.txt'].filter((f) => fs.existsSync(path.join(gameDir, f)));
+  if (!src.length) return;
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const dest = path.join(logsDir(), stamp);
+  fs.mkdirSync(dest, { recursive: true });
+  for (const f of src) fs.copyFileSync(path.join(gameDir, f), path.join(dest, f));
+  const sessions = fs.readdirSync(logsDir()).sort();
+  for (const old of sessions.slice(0, Math.max(0, sessions.length - LOGS_TO_KEEP))) {
+    fs.rmSync(path.join(logsDir(), old), { recursive: true, force: true });
+  }
+}
+
+ipcMain.handle('logs:consent', (_e, value) => {
+  saveSettings({ logsConsent: value === true });
+  return true;
+});
+ipcMain.handle('logs:open', () => {
+  fs.mkdirSync(logsDir(), { recursive: true });
+  return shell.openPath(logsDir());
+});
 
 // Limpieza automática: se conservan los últimos informes de diagnóstico y se recorta el registro de actualizaciones.
 const REPORTS_TO_KEEP = 10;

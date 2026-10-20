@@ -16,6 +16,8 @@ contextBridge.exposeInMainWorld('launcher', {
   restoreBackup: (gameDir) => ipcRenderer.invoke('backup:restore', gameDir),
   runDiagnostics: (gameDir) => ipcRenderer.invoke('diag:run', gameDir),
   checkRequirements: (gameDir) => ipcRenderer.invoke('req:check', gameDir),
+  setLogsConsent: (value) => ipcRenderer.invoke('logs:consent', value),
+  openLogsFolder: () => ipcRenderer.invoke('logs:open'),
   showReport: (p) => ipcRenderer.invoke('diag:show', p),
   openTailscale: () => ipcRenderer.invoke('tailscale:open'),
   openTailscaleKeys: () => ipcRenderer.invoke('tailscale:keys'),

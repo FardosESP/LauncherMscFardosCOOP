@@ -93,6 +93,15 @@
           </div>
         </div>
 
+        <div class="card" id="logsBanner" hidden>
+          <div class="card-title">¿Guardar registros de partida?</div>
+          <p class="muted">Si aceptas, el launcher guarda en tu carpeta <b>DescargasFardosMSC-Registros</b> los registros del juego (output_log y MSCLoader_Preloader) de cada partida, para poder revisar fallos. Los guarda solo en tu PC: no se envían a nadie. Puedes dejarlo cuando quieras en Configuración.</p>
+          <div class="row-actions">
+            <button class="primary small" id="logsYes">Sí, guardar</button>
+            <button class="secondary small" id="logsNo">No</button>
+          </div>
+        </div>
+
         <div class="footer-bar">
           <p id="status" class="status"></p>
           <button class="secondary" id="playFix" hidden></button>
@@ -130,6 +139,15 @@
           <div class="row-actions">
             <button class="primary" id="runDiag">Generar diagnóstico</button>
             <button class="secondary" id="showDiag" hidden>Abrir informe</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Registros de partida</div>
+          <p class="muted" id="logsStatus">Comprobando…</p>
+          <div class="row-actions">
+            <button class="secondary" id="logsOpen">Abrir carpeta de registros</button>
+            <button class="ghost" id="logsOff">Dejar de guardar registros</button>
           </div>
         </div>
 

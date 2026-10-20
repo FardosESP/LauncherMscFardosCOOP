@@ -106,6 +106,7 @@ async function refresh(gameDir) {
   ui.port.value = s.settings.port || 25565;
   ui.playerName.value = s.settings.playerName || '';
   render();
+  renderLogsConsent(s.settings.logsConsent);
   refreshTailscaleStatus();
   refreshRequirements();
   if (state.game && state.loader && !s.build) setStatus('Tu juego no es la versión probada (build 20171487). El mod puede fallar.', 'bad');
@@ -361,6 +362,29 @@ async function fixRequirement(kind) {
     return ui.tsKeyCard.scrollIntoView({ behavior: 'smooth' });
   }
 }
+
+// Registros de partida: se pide permiso una vez, y se puede quitar desde Configuración.
+function renderLogsConsent(consent) {
+  $('logsBanner').hidden = consent !== undefined && consent !== null;
+  $('logsStatus').textContent = consent === true
+    ? 'Guardando los registros de cada partida en Descargas\FardosMSC-Registros (solo en tu PC).'
+    : 'No se guardan registros.';
+}
+$('logsYes').addEventListener('click', async () => {
+  await window.launcher.setLogsConsent(true);
+  renderLogsConsent(true);
+  setStatus('Registros activados.', 'ok');
+});
+$('logsNo').addEventListener('click', async () => {
+  await window.launcher.setLogsConsent(false);
+  renderLogsConsent(false);
+});
+$('logsOff').addEventListener('click', async () => {
+  await window.launcher.setLogsConsent(false);
+  renderLogsConsent(false);
+  setStatus('Ya no se guardan registros.', 'ok');
+});
+$('logsOpen').addEventListener('click', () => window.launcher.openLogsFolder());
 
 let lastReport = '';
 ui.runDiag = $('runDiag');
