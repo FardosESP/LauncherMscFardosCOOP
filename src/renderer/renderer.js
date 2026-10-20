@@ -27,6 +27,7 @@ const ui = {
   playerName: $('playerName'),
   play: $('play'),
   status: $('status'),
+  restoreBackup: $('restoreBackup'),
   tsKeyCard: $('tsKeyCard'),
   tsKey: $('tsKey'),
   tsConnect: $('tsConnect'),
@@ -184,6 +185,18 @@ ui.tsConnect.addEventListener('click', async () => {
   }
 });
 ui.tsKeysLink.addEventListener('click', () => window.launcher.openTailscaleKeys());
+
+ui.restoreBackup.addEventListener('click', async () => {
+  const dir = ui.gameDir.value.trim();
+  if (!window.confirm('Se devolverán los archivos originales del juego y se quitará MSCLoader y el mod. ¿Continuar?')) return;
+  const res = await window.launcher.restoreBackup(dir);
+  if (res.ok) {
+    setStatus('Copia restaurada. El juego vuelve a estar como antes del launcher.', 'ok');
+    await refresh(dir);
+  } else {
+    setStatus(res.error, 'bad');
+  }
+});
 
 // Tras instalar Tailscale, esperamos a que aparezca solo y refrescamos el estado.
 function waitForTailscale() {

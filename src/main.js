@@ -187,6 +187,59 @@ ipcMain.handle('game:pick', async (e) => {
 
 ipcMain.handle('game:autodetect', () => autoDetectGameDir());
 
+// Archivos que el launcher puede tocar dentro de la carpeta del juego (relativos a ella).
+const MANAGED_REL = path.join('mysummercar_Data', 'Managed');
+const BACKUP_FILES = [
+  'winhttp.dll',
+  'winhttp.dll.orig',
+  'doorstop_config.ini',
+  path.join(MANAGED_REL, 'MSCLoader.dll'),
+  path.join(MANAGED_REL, 'MSCLoader.Preloader.dll'),
+  path.join(MANAGED_REL, 'MSCLoader.xml'),
+  path.join(MANAGED_REL, 'INIFileParser.dll'),
+  path.join(MANAGED_REL, 'Ionic.Zip.Reduced.dll'),
+  path.join('Mods', 'MscCoop.dll'),
+  path.join('Mods', 'Config', 'msc-coop.json'),
+];
+
+// Copia de seguridad: se hace una sola vez, antes del primer cambio del launcher.
+// Guarda cómo estaban los archivos (y si no existían) para poder restaurarlos.
+function backupBeforeChange(dir) {
+  const backupDir = path.join(dir, 'fardos-backup');
+  const manifestPath = path.join(backupDir, 'manifest.json');
+  if (fs.existsSync(manifestPath)) return;
+  fs.mkdirSync(backupDir, { recursive: true });
+  const entries = BACKUP_FILES.map((rel) => {
+    const src = path.join(dir, rel);
+    const existed = fs.existsSync(src);
+    if (existed) {
+      const dst = path.join(backupDir, rel);
+      fs.mkdirSync(path.dirname(dst), { recursive: true });
+      fs.copyFileSync(src, dst);
+    }
+    return { path: rel, existed };
+  });
+  fs.writeFileSync(manifestPath, JSON.stringify({ createdAt: new Date().toISOString(), files: entries }, null, 2));
+}
+
+// Restaura la copia: devuelve los archivos originales y borra los que el launcher añadió.
+function restoreBackup(dir) {
+  const backupDir = path.join(dir, 'fardos-backup');
+  const manifestPath = path.join(backupDir, 'manifest.json');
+  if (!fs.existsSync(manifestPath)) return { ok: false, error: 'No hay copia de seguridad que restaurar.' };
+  const { files } = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  for (const { path: rel, existed } of files) {
+    const target = path.join(dir, rel);
+    if (existed) {
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.copyFileSync(path.join(backupDir, rel), target);
+    } else {
+      fs.rmSync(target, { force: true });
+    }
+  }
+  return { ok: true };
+}
+
 // Copia MSCLoader desde el paquete incluido en el launcher (tools\msc-loader); no hace falta descargar nada.
 function copyDir(src, dst) {
   fs.mkdirSync(dst, { recursive: true });
@@ -198,12 +251,23 @@ function copyDir(src, dst) {
   }
 }
 
+ipcMain.handle('backup:restore', (_e, gameDir) => {
+  const dir = gameDir || loadSettings().gameDir;
+  if (!isGameDir(dir)) return { ok: false, error: 'Elige primero la carpeta del juego.' };
+  try {
+    return restoreBackup(dir);
+  } catch (e) {
+    return { ok: false, error: `No se pudo restaurar la copia: ${e.message}` };
+  }
+});
+
 ipcMain.handle('loader:install', (_e, gameDir) => {
   const dir = gameDir || loadSettings().gameDir;
   if (!isGameDir(dir)) return { ok: false, error: 'Elige primero la carpeta del juego.' };
   const bundle = path.join(toolsDir(), 'msc-loader');
   if (!fs.existsSync(bundle)) return { ok: false, error: 'Falta el paquete de MSCLoader dentro del launcher.' };
   try {
+    backupBeforeChange(dir);
     // Si ya hay un winhttp.dll distinto, se guarda una copia antes de reemplazarlo.
     const target = path.join(dir, 'winhttp.dll');
     const src = path.join(bundle, 'root', 'winhttp.dll');
@@ -364,6 +428,8 @@ ipcMain.handle('game:launch', (_e, payload) => {
   try { previous = JSON.parse(fs.readFileSync(configFile, 'utf8')); } catch { /* primera vez */ }
   config.MaxCars = Number(previous.MaxCars) >= 2 ? 2 : 1;
   fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
+
+  backupBeforeChange(gameDir);
 
   // Instala o actualiza el mod de cooperativo para que siempre coincida con la versión del launcher.
   const bundledMod = path.join(toolsDir(), 'MscCoop.dll');

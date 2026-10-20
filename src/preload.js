@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('launcher', {
   openFirewall: (port) => ipcRenderer.invoke('firewall:open', port),
   onUpdateStatus: (cb) => ipcRenderer.on('update:status', (_e, s) => cb(s)),
   onGameStatus: (cb) => ipcRenderer.on('game:status', (_e, s) => cb(s)),
+  restoreBackup: (gameDir) => ipcRenderer.invoke('backup:restore', gameDir),
   openTailscale: () => ipcRenderer.invoke('tailscale:open'),
   openTailscaleKeys: () => ipcRenderer.invoke('tailscale:keys'),
   loginTailscale: (key) => ipcRenderer.invoke('tailscale:login', key),
