@@ -747,6 +747,17 @@ const releaseNotesText = (notes) => {
   return text.replace(/<[^>]+>/g, '').trim().slice(0, 600);
 };
 
+// Instala la actualización sola: reinicia el launcher en cuanto el juego esté cerrado (no corta una partida en curso).
+function installWhenIdle(version) {
+  updaterLog(`instalación automática de ${version} programada`);
+  const timer = setInterval(() => {
+    if (gameRunning()) return;
+    clearInterval(timer);
+    updaterLog(`reiniciando para instalar ${version}`);
+    autoUpdater.quitAndInstall(false, true);
+  }, 15000);
+}
+
 let updateWindow = null;
 function sendUpdate(state) {
   if (updateWindow && !updateWindow.isDestroyed()) updateWindow.webContents.send('update:state', state);
@@ -784,6 +795,7 @@ function setupAutoUpdate(win) {
   autoUpdater.on('update-downloaded', (info) => {
     updaterLog(`descargada ${info.version}`);
     sendUpdate({ phase: 'ready', version: info.version, notes: releaseNotesText(info.releaseNotes) });
+    installWhenIdle(info.version);
   });
   autoUpdater.on('error', (err) => {
     updaterLog(`error ${err && err.message ? err.message : err}`);
