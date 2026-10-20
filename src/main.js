@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const https = require('https');
+const crypto = require('crypto');
 const { autoUpdater } = require('electron-updater');
 const { execFile, spawn } = require('child_process');
 
@@ -186,6 +187,100 @@ ipcMain.handle('game:pick', async (e) => {
 });
 
 ipcMain.handle('game:autodetect', () => autoDetectGameDir());
+
+// ---------- Diagnóstico ----------
+
+const sha256 = (file) => {
+  try {
+    return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex').slice(0, 16);
+  } catch {
+    return 'NO EXISTE';
+  }
+};
+const fileSize = (file) => {
+  try { return `${fs.statSync(file).size} bytes`; } catch { return 'NO EXISTE'; }
+};
+const tailLines = (file, n) => {
+  try {
+    return fs.readFileSync(file, 'utf8').split(/\r?\n/).slice(-n).join('\n');
+  } catch {
+    return '(no existe)';
+  }
+};
+const exists = (p) => (fs.existsSync(p) ? 'sí' : 'no');
+
+// Genera un informe con todas las comprobaciones y lo guarda en la carpeta de datos del launcher.
+async function runDiagnostics(gameDirInput) {
+  const settings = loadSettings();
+  const dir = gameDirInput || settings.gameDir || '';
+  const bundle = path.join(toolsDir(), 'msc-loader');
+  const managed = path.join(dir, 'mysummercar_Data', 'Managed');
+  const out = [];
+  const line = (k, v) => out.push(`${k}: ${v}`);
+  const sec = (t) => out.push(`\n== ${t} ==`);
+
+  sec('Launcher');
+  line('Versión', app.getVersion());
+  line('Empaquetado', app.isPackaged);
+  line('Windows', os.release());
+  line('Arquitectura', process.arch);
+  line('Fecha', new Date().toISOString());
+
+  sec('Juego');
+  line('Carpeta', dir || '(no elegida)');
+  line('mysummercar.exe', isGameDir(dir) ? 'sí' : 'no');
+  line('Assembly-CSharp.dll', fileSize(path.join(managed, 'Assembly-CSharp.dll')));
+  line('Build probada', gameBuildOk(dir) ? 'sí' : 'no');
+  line('steam_api64.dll', exists(path.join(dir, 'steam_api64.dll')));
+  line('steam_settings', exists(path.join(dir, 'steam_settings')));
+
+  sec('MSCLoader (instalado vs paquete)');
+  for (const rel of ['winhttp.dll', 'doorstop_config.ini']) {
+    line(rel, `${sha256(path.join(dir, rel))} | paquete ${sha256(path.join(bundle, 'root', rel))}`);
+  }
+  for (const f of ['MSCLoader.dll', 'MSCLoader.Preloader.dll', 'INIFileParser.dll', 'Ionic.Zip.Reduced.dll']) {
+    line(f, `${sha256(path.join(managed, f))} | paquete ${sha256(path.join(bundle, 'Managed', f))}`);
+  }
+  line('winhttp.dll.orig', exists(path.join(dir, 'winhttp.dll.orig')));
+  line('fardos-backup', exists(path.join(dir, 'fardos-backup')));
+
+  sec('Mod');
+  line('Mods/MscCoop.dll', `${sha256(path.join(dir, 'Mods', 'MscCoop.dll'))} | paquete ${sha256(path.join(toolsDir(), 'MscCoop.dll'))}`);
+  line('Mods/MscCoop.dll tamaño', fileSize(path.join(dir, 'Mods', 'MscCoop.dll')));
+  let otherMods = [];
+  try {
+    otherMods = fs.readdirSync(path.join(dir, 'Mods')).filter((f) => /\.dll$/i.test(f) && f !== 'MscCoop.dll');
+  } catch { /* sin carpeta Mods */ }
+  line('Otros DLL en Mods', otherMods.length ? otherMods.join(', ') : 'ninguno');
+  sec('msc-coop.json (sin claves)');
+  out.push(tailLines(path.join(dir, 'Mods', 'Config', 'msc-coop.json'), 30));
+
+  sec('Red');
+  line('Tailscale instalado', tailscaleInstalled() ? 'sí' : 'no');
+  line('IP Tailscale', (await tailscaleIp()) || '(sin IP)');
+  line('Firewall (puerto ' + settings.port + ')', (await firewallOpen(settings.port)) ? 'abierto' : 'cerrado');
+  line('Modo', settings.mode);
+
+  sec('output_log.txt (últimas 80 líneas)');
+  out.push(tailLines(path.join(dir, 'output_log.txt'), 80));
+  sec('MSCLoader_Preloader.txt (últimas 40 líneas)');
+  out.push(tailLines(path.join(dir, 'MSCLoader_Preloader.txt'), 40));
+
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const reportPath = path.join(app.getPath('userData'), `diagnostico-${stamp}.txt`);
+  fs.mkdirSync(path.dirname(reportPath), { recursive: true });
+  fs.writeFileSync(reportPath, out.join('\n'));
+  return reportPath;
+}
+
+ipcMain.handle('diag:run', async (_e, gameDir) => {
+  try {
+    return { ok: true, path: await runDiagnostics(gameDir) };
+  } catch (e) {
+    return { ok: false, error: `No se pudo generar el diagnóstico: ${e.message}` };
+  }
+});
+ipcMain.handle('diag:show', (_e, p) => shell.showItemInFolder(p));
 
 // Archivos que el launcher puede tocar dentro de la carpeta del juego (relativos a ella).
 const MANAGED_REL = path.join('mysummercar_Data', 'Managed');

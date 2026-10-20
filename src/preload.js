@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld('launcher', {
   onUpdateStatus: (cb) => ipcRenderer.on('update:status', (_e, s) => cb(s)),
   onGameStatus: (cb) => ipcRenderer.on('game:status', (_e, s) => cb(s)),
   restoreBackup: (gameDir) => ipcRenderer.invoke('backup:restore', gameDir),
+  runDiagnostics: (gameDir) => ipcRenderer.invoke('diag:run', gameDir),
+  showReport: (p) => ipcRenderer.invoke('diag:show', p),
   openTailscale: () => ipcRenderer.invoke('tailscale:open'),
   openTailscaleKeys: () => ipcRenderer.invoke('tailscale:keys'),
   loginTailscale: (key) => ipcRenderer.invoke('tailscale:login', key),

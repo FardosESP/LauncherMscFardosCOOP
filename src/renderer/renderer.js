@@ -186,6 +186,24 @@ ui.tsConnect.addEventListener('click', async () => {
 });
 ui.tsKeysLink.addEventListener('click', () => window.launcher.openTailscaleKeys());
 
+let lastReport = '';
+ui.runDiag = $('runDiag');
+ui.showDiag = $('showDiag');
+ui.runDiag.addEventListener('click', async () => {
+  ui.runDiag.disabled = true;
+  setStatus('Generando diagnóstico…');
+  const res = await window.launcher.runDiagnostics(ui.gameDir.value.trim());
+  ui.runDiag.disabled = false;
+  if (res.ok) {
+    lastReport = res.path;
+    ui.showDiag.hidden = false;
+    setStatus(`Diagnóstico guardado: ${res.path}`, 'ok');
+  } else {
+    setStatus(res.error, 'bad');
+  }
+});
+ui.showDiag.addEventListener('click', () => window.launcher.showReport(lastReport));
+
 ui.restoreBackup.addEventListener('click', async () => {
   const dir = ui.gameDir.value.trim();
   if (!window.confirm('Se devolverán los archivos originales del juego y se quitará MSCLoader y el mod. ¿Continuar?')) return;
