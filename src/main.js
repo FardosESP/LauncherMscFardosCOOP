@@ -860,17 +860,19 @@ function startSessionLogs(gameDir, shareThisSession, sender) {
   const settings = loadSettings();
   const shared = shareThisSession && settings.sharedLogsFolder
     ? path.join(settings.sharedLogsFolder, stamp) : null;
-  if (shared) fs.mkdirSync(shared, { recursive: true });
-  shareState = { active: !!shared, count: 0, sender: sender || null };
+  // Si la carpeta compartida no está disponible (disco desconectado…), se juega igual, solo sin compartir.
+  let sharedDir = shared;
+  try { if (sharedDir) fs.mkdirSync(sharedDir, { recursive: true }); } catch { sharedDir = null; }
+  shareState = { active: !!sharedDir, count: 0, sender: sender || null };
   pushShareState();
   const copyAll = () => {
     for (const f of SESSION_FILES) {
       try { fs.copyFileSync(path.join(gameDir, f), path.join(dest, f)); } catch { /* aún no existe */ }
-      if (shared && shareState.active) {
-        try { fs.copyFileSync(path.join(gameDir, f), path.join(shared, f)); } catch { /* aún no existe */ }
+      if (sharedDir && shareState.active) {
+        try { fs.copyFileSync(path.join(gameDir, f), path.join(sharedDir, f)); } catch { /* aún no existe */ }
       }
     }
-    if (shared && shareState.active) {
+    if (sharedDir && shareState.active) {
       shareState.count++;
       if (shareState.count % 4 === 1) pushShareState();
     }
@@ -880,6 +882,9 @@ function startSessionLogs(gameDir, shareThisSession, sender) {
     if (!gameRunning()) {
       clearInterval(timer);
       copyAll();
+      // El juego se cerró: el envío termina y la pantalla lo sabe (se oculta el botón de parar).
+      shareState.active = false;
+      pushShareState();
       const sessions = fs.readdirSync(logsDir()).sort();
       for (const old of sessions.slice(0, Math.max(0, sessions.length - LOGS_TO_KEEP))) {
         fs.rmSync(path.join(logsDir(), old), { recursive: true, force: true });
