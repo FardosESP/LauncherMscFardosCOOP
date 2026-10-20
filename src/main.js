@@ -415,6 +415,8 @@ ipcMain.handle('loader:install', (_e, gameDir) => {
     copyDir(path.join(bundle, 'root'), dir);
     copyDir(path.join(bundle, 'Managed'), path.join(dir, 'mysummercar_Data', 'Managed'));
     fs.mkdirSync(path.join(dir, 'Mods'), { recursive: true });
+    // El mod también se instala aquí, para que aparezca en MSCLoader sin tener que pulsar Jugar.
+    fs.copyFileSync(path.join(toolsDir(), 'MscCoop.dll'), path.join(dir, 'Mods', 'MscCoop.dll'));
   } catch (e) {
     return { ok: false, error: `No se pudo instalar MSCLoader: ${e.message}` };
   }
