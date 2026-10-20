@@ -450,8 +450,18 @@ ipcMain.handle('tailscale:status', () => tailscaleStatus());
 ipcMain.handle('tailscale:ping', (_e, ip) => new Promise((resolve) => {
   const target = String(ip || '').trim();
   if (!/^100\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(target)) return resolve({ ok: false, error: 'La IP debe tener el formato 100.x.x.x.' });
-  execFile(TAILSCALE_EXE, ['ping', '--c', '1', '--timeout', '4s', target], { timeout: 10000, windowsHide: true }, (err, stdout) => {
-    resolve({ ok: !err && /pong/i.test(stdout), detail: (stdout || '').trim().slice(0, 200) });
+  // Tailscale sale con código de error aunque responda si la conexión va por relé (DERP): se mira el «pong».
+  execFile(TAILSCALE_EXE, ['ping', '--c', '1', '--timeout', '4s', target], { timeout: 10000, windowsHide: true }, (_err, stdout) => {
+    const out = (stdout || '').trim();
+    const answered = /pong/i.test(out);
+    const relayed = /via DERP/i.test(out);
+    resolve({
+      ok: answered,
+      relayed,
+      detail: answered
+        ? (relayed ? 'Responde, pero por relé: irá algo más lento.' : 'Responde por conexión directa.')
+        : 'No responde. Revisa que el otro PC tenga Tailscale abierto y conectado.',
+    });
   });
 }));
 

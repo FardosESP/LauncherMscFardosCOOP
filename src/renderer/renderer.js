@@ -226,9 +226,10 @@ $('tsPing').addEventListener('click', async () => {
   const result = $('tsPingResult');
   result.textContent = 'Probando…';
   const res = await window.launcher.tailscalePing(ui.address.value.trim());
+  const host = ui.address.value.trim();
   result.textContent = res.ok
-    ? `El anfitrión ${ui.address.value.trim()} responde. Ya puedes unirte.`
-    : (res.error || `El anfitrión ${ui.address.value.trim()} no responde. Revisa que esté conectado a la misma red.`);
+    ? `El anfitrión ${host} responde. ${res.detail} Ya puedes unirte.`
+    : (res.error || `El anfitrión ${host} no responde. ${res.detail || ''}`.trim());
 });
 
 // Lista de requisitos con botón para arreglar cada uno cuando se puede.
