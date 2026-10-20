@@ -222,6 +222,18 @@ async function requirementsStatus(gameDirInput) {
   return [
     { id: 'windows', label: 'Windows 10 o superior', ok: major >= 10, needed: true, detail: `Versión ${os.release()}` },
     { id: 'game', label: 'My Summer Car encontrado', ok: isGameDir(dir), needed: true, fix: 'choose', detail: dir || 'No encontrado' },
+    {
+      id: 'framework',
+      label: 'Librerías del juego necesarias (System.*)',
+      ok: isGameDir(dir) && ['System.dll', 'System.Core.dll', 'System.Data.dll', 'System.Xml.dll', 'System.Runtime.Serialization.dll']
+        .every((f) => fs.existsSync(path.join(managed, f))),
+      needed: true,
+      fix: 'loader',
+      detail: isGameDir(dir)
+        ? (['System.dll', 'System.Core.dll', 'System.Data.dll', 'System.Xml.dll', 'System.Runtime.Serialization.dll']
+          .filter((f) => !fs.existsSync(path.join(managed, f))).join(', ') || 'Todas presentes')
+        : 'Sin juego',
+    },
     { id: 'build', label: 'Versión del juego probada (build 20171487)', ok: gameBuildOk(dir), needed: false, detail: gameBuildOk(dir) ? 'Correcta' : 'Otra versión: puede fallar' },
     { id: 'loader', label: 'MSCLoader instalado y actualizado', ok: loaderOk, needed: true, fix: 'loader', detail: loaderOk ? 'Correcto' : 'Falta o no coincide' },
     { id: 'mod', label: 'Mod MscCoop instalado y actualizado', ok: modOk, needed: true, fix: 'loader', detail: modOk ? 'Correcto (se actualiza al pulsar Jugar)' : 'Se copiará al pulsar Jugar' },
@@ -389,6 +401,16 @@ function restoreBackup(dir) {
 }
 
 // Copia MSCLoader desde el paquete incluido en el launcher (tools\msc-loader); no hace falta descargar nada.
+// Copia solo los archivos que no existan en el destino.
+function copyMissing(src, dst) {
+  if (!fs.existsSync(src)) return;
+  fs.mkdirSync(dst, { recursive: true });
+  for (const name of fs.readdirSync(src)) {
+    const to = path.join(dst, name);
+    if (!fs.existsSync(to)) fs.copyFileSync(path.join(src, name), to);
+  }
+}
+
 function copyDir(src, dst) {
   fs.mkdirSync(dst, { recursive: true });
   for (const e of fs.readdirSync(src, { withFileTypes: true })) {
@@ -424,6 +446,8 @@ ipcMain.handle('loader:install', (_e, gameDir) => {
     }
     copyDir(path.join(bundle, 'root'), dir);
     copyDir(path.join(bundle, 'Managed'), path.join(dir, 'mysummercar_Data', 'Managed'));
+    // Librerías del sistema que MSCLoader necesita: solo se copian si faltan (no se sustituye nada que ya exista).
+    copyMissing(path.join(bundle, 'Managed-fallback'), path.join(dir, 'mysummercar_Data', 'Managed'));
     fs.mkdirSync(path.join(dir, 'Mods'), { recursive: true });
     // El mod también se instala aquí, para que aparezca en MSCLoader sin tener que pulsar Jugar.
     fs.copyFileSync(path.join(toolsDir(), 'MscCoop.dll'), path.join(dir, 'Mods', 'MscCoop.dll'));
