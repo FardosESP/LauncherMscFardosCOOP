@@ -107,6 +107,7 @@ async function refresh(gameDir) {
   ui.playerName.value = s.settings.playerName || '';
   render();
   refreshTailscaleStatus();
+  refreshRequirements();
   if (state.game && state.loader && !s.build) setStatus('Tu juego no es la versión probada (build 20171487). El mod puede fallar.', 'bad');
   else if (state.game && state.loader) setStatus('Todo listo. Pulsa Jugar para empezar.', 'ok');
   else if (state.game) setStatus('Falta instalar MSCLoader. Ve a Estado.', 'bad');
@@ -229,6 +230,52 @@ $('tsPing').addEventListener('click', async () => {
     ? `El anfitrión ${ui.address.value.trim()} responde. Ya puedes unirte.`
     : (res.error || `El anfitrión ${ui.address.value.trim()} no responde. Revisa que esté conectado a la misma red.`);
 });
+
+// Lista de requisitos con botón para arreglar cada uno cuando se puede.
+async function refreshRequirements() {
+  const items = await window.launcher.checkRequirements(ui.gameDir.value.trim());
+  const list = $('reqList');
+  list.innerHTML = '';
+  const missing = items.filter((i) => i.needed && !i.ok);
+  $('reqSummary').textContent = missing.length
+    ? `Faltan ${missing.length} requisito(s) para jugar: ${missing.map((i) => i.label).join(', ')}.`
+    : 'Todo lo necesario para jugar está listo.';
+  for (const it of items) {
+    const li = document.createElement('li');
+    const info = document.createElement('div');
+    info.className = 'check-info';
+    const name = document.createElement('div');
+    name.className = 'check-name';
+    name.textContent = it.needed ? it.label : `${it.label} (opcional)`;
+    const desc = document.createElement('div');
+    desc.className = 'check-desc';
+    desc.textContent = it.detail;
+    info.append(name, desc);
+    const chipEl = document.createElement('span');
+    chip(chipEl, it.ok, 'Correcto', it.needed ? 'Falta' : 'No');
+    li.append(info, chipEl);
+    if (!it.ok && it.fix) {
+      const btn = document.createElement('button');
+      btn.className = 'ghost small';
+      btn.textContent = { loader: 'Instalar', tailscale: 'Instalar', firewall: 'Abrir puerto', tskey: 'Conectar', choose: 'Elegir' }[it.fix];
+      btn.addEventListener('click', () => fixRequirement(it.fix));
+      li.appendChild(btn);
+    }
+    list.appendChild(li);
+  }
+}
+
+// Acción de cada requisito: lleva a la acción correspondiente.
+async function fixRequirement(kind) {
+  if (kind === 'choose') return pickGame();
+  if (kind === 'loader') return ui.installLoader.click();
+  if (kind === 'tailscale') return ui.openTailscale.click();
+  if (kind === 'firewall') return openFirewall();
+  if (kind === 'tskey') {
+    ui.tsKey.focus();
+    return ui.tsKeyCard.scrollIntoView({ behavior: 'smooth' });
+  }
+}
 
 let lastReport = '';
 ui.runDiag = $('runDiag');

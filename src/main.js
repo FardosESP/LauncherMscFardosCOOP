@@ -188,6 +188,40 @@ ipcMain.handle('game:pick', async (e) => {
 
 ipcMain.handle('game:autodetect', () => autoDetectGameDir());
 
+// ---------- Requisitos ----------
+
+// Lista de requisitos con su estado. `needed` indica si bloquea jugar o solo sirve para partidas a distancia o como anfitrión.
+async function requirementsStatus(gameDirInput) {
+  const settings = loadSettings();
+  const dir = gameDirInput || settings.gameDir || '';
+  const bundle = path.join(toolsDir(), 'msc-loader');
+  const managed = path.join(dir, 'mysummercar_Data', 'Managed');
+  const same = (a, b) => sha256(a) !== 'NO EXISTE' && sha256(a) === sha256(b);
+  const loaderFiles = [
+    [path.join(dir, 'winhttp.dll'), path.join(bundle, 'root', 'winhttp.dll')],
+    [path.join(dir, 'doorstop_config.ini'), path.join(bundle, 'root', 'doorstop_config.ini')],
+    ...['MSCLoader.dll', 'MSCLoader.Preloader.dll', 'INIFileParser.dll', 'Ionic.Zip.Reduced.dll']
+      .map((f) => [path.join(managed, f), path.join(bundle, 'Managed', f)]),
+  ];
+  const loaderOk = isGameDir(dir) && loaderFiles.every(([a, b]) => same(a, b));
+  const modOk = same(path.join(dir, 'Mods', 'MscCoop.dll'), path.join(toolsDir(), 'MscCoop.dll'));
+  const ts = await tailscaleStatus();
+  const major = parseInt(os.release().split('.')[0], 10);
+
+  return [
+    { id: 'windows', label: 'Windows 10 o superior', ok: major >= 10, needed: true, detail: `Versión ${os.release()}` },
+    { id: 'game', label: 'My Summer Car encontrado', ok: isGameDir(dir), needed: true, fix: 'choose', detail: dir || 'No encontrado' },
+    { id: 'build', label: 'Versión del juego probada (build 20171487)', ok: gameBuildOk(dir), needed: false, detail: gameBuildOk(dir) ? 'Correcta' : 'Otra versión: puede fallar' },
+    { id: 'loader', label: 'MSCLoader instalado y actualizado', ok: loaderOk, needed: true, fix: 'loader', detail: loaderOk ? 'Correcto' : 'Falta o no coincide' },
+    { id: 'mod', label: 'Mod MscCoop instalado y actualizado', ok: modOk, needed: true, fix: 'loader', detail: modOk ? 'Correcto (se actualiza al pulsar Jugar)' : 'Se copiará al pulsar Jugar' },
+    { id: 'tailscale', label: 'Tailscale instalado', ok: !!ts.installed, needed: false, fix: 'tailscale', detail: ts.installed ? 'Sí' : 'Solo hace falta para jugar a distancia' },
+    { id: 'tsconnected', label: 'Tailscale conectado a la red', ok: !!(ts.installed && ts.running && ts.ip), needed: false, fix: 'tskey', detail: ts.running ? `IP ${ts.ip || '—'}` : (ts.error || 'Pega una clave de invitación') },
+    { id: 'firewall', label: `Firewall abierto en el puerto ${settings.port} (anfitrión)`, ok: await firewallOpen(settings.port), needed: false, fix: 'firewall', detail: 'Solo lo necesita quien crea la partida' },
+  ];
+}
+
+ipcMain.handle('req:check', (_e, gameDir) => requirementsStatus(gameDir));
+
 // ---------- Diagnóstico ----------
 
 const sha256 = (file) => {
