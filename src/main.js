@@ -674,6 +674,7 @@ function watchGameLog(dir, webContents) {
 ipcMain.handle('game:launch', (_e, payload) => {
   const { gameDir, mode, address, port, playerName, tailscaleIp: ip } = payload;
   if (!isGameDir(gameDir)) return { ok: false, error: 'Elige primero la carpeta del juego.' };
+  if (gameRunning()) return { ok: false, error: 'El juego ya está abierto. Vuelve a la ventana del juego.' };
   // Antes de jugar se comprueba y repara MSCLoader y el mod automáticamente.
   const repair = installLoaderFiles(gameDir);
   if (!repair.ok) return repair;
